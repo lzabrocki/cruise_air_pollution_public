@@ -1,0 +1,291 @@
+---
+title: "Checking the Hypothetical Intervention - Cruise Experiment"
+description: |
+  Comparing days with one cruise vessels entering the port to days without. Adjusting for calendar and weather indicators.
+authors:
+  - name: Léo Zabrocki 
+    url: https://www.parisschoolofeconomics.eu/en/
+    affiliation: Paris School of Economics
+    affiliation_url: https://www.parisschoolofeconomics.eu/en/
+  - name: Marion Leroutier 
+    url: https://marionleroutier.weebly.com/
+    affiliation: Mistra Center for Sustainable Markets, Stockholm School of Economics
+    affiliation_url: https://www.hhs.se/en/persons/l/leroutier-marion/
+  - name: Marie-Abèle Bind 
+    url: https://biostatistics.massgeneral.org/faculty/marie-abele-bind-phd/
+    affiliation: Biostatistics Center, Massachusetts General Hospital
+    affiliation_url: https://biostatistics.massgeneral.org/faculty/marie-abele-bind-phd/
+date: "`r Sys.Date()`"
+output: 
+    distill::distill_article:
+      toc: true
+      toc_depth: 3
+---
+
+<style>
+body {
+text-align: justify}
+</style>
+
+In this document, we take great care providing all steps and R codes required to check the intervention we set up in our matching procedure.  We compare days where:
+
+* treated units are days with one cruise vessel entering the port in *t*.
+* control units are day with zero cruise vessel entering the port in *t*.
+
+We adjust for calendar indicator and weather confouding factors.
+
+**Should you have any questions, need help to reproduce the analysis or find coding errors, please do not hesitate to contact us at leo.zabrocki@psemail.eu and marion.leroutier@hhs.se.** 
+
+# Required Packages
+
+To reproduce exactly the `3_script_checking_intervention.html` document, we first need to have installed:
+
+* the [R](https://www.r-project.org/) programming language 
+* [RStudio](https://rstudio.com/), an integrated development environment for R, which will allow you to knit the `3_script_checking_intervention.Rmd` file and interact with the R code chunks
+* the [R Markdown](https://rmarkdown.rstudio.com/) package
+* and the [Distill](https://rstudio.github.io/distill/) package which provides the template for this document. 
+
+Once everything is set up, we have to load the following packages:
+
+```{r, echo = TRUE, message = FALSE, warning = FALSE}
+# load required packages
+library(knitr) # for creating the R Markdown document
+library(here) # for files paths organization
+library(tidyverse) # for data manipulation and visualization
+library(ggridges) # for ridge density plots
+library(Cairo) # for printing customed police of graphs
+library(patchwork) # combining plots
+```
+
+We finally load our customed `ggplot2` theme for graphs:
+
+```{r, echo = TRUE, message = FALSE, warning = FALSE}
+# load ggplot customed theme
+source(here::here("2.scripts", "5.custom_ggplot2_theme", "script_custom_ggplot_theme.R"))
+````
+
+The theme is based on the fantastic [hrbrthemes](https://hrbrmstr.github.io/hrbrthemes/index.html) package. If you do not want to use this theme or are unable to install it because of fonts issues, you can use the `theme_bw()` already included in the `ggplot2` package.
+
+# Preparing the Data
+
+We load the matched data:
+
+```{R, echo = TRUE}
+# load matched data
+data_matched <- readRDS(here::here("1.data", "2.data_for_analysis", "1.cruise_experiment", "matched_data.rds"))
+```
+
+# Checking the Hypothetical Intervention
+
+We compute the difference in the daily cruise total gross tonnage for each pair:
+
+```{R, echo=TRUE, message = FALSE, warning = FALSE}
+# compute the difference in tonnage by pair
+pair_difference_tonnage_t <- data_matched %>%
+  select(total_gross_tonnage_cruise, is_treated, pair_number) %>%
+  arrange(pair_number, is_treated) %>%
+  select(-is_treated) %>%
+  group_by(pair_number) %>%
+  summarise(tonnage_difference = total_gross_tonnage_cruise[2]- total_gross_tonnage_cruise[1])
+````
+
+We find on average, a `r round(mean(pair_difference_tonnage_t$tonnage_difference),0)` difference in gross tonnage between treated and control units. Below is the distribution of the pair difference in hourly gross tonnage in t:
+
+```{R, echo=TRUE, message = FALSE, warning = FALSE, layout="l-body-outset", fig.width=14, fig.height=10, dev = "CairoPNG"}
+# plot the graph
+graph_tonnage_difference_density <- ggplot(pair_difference_tonnage_t, aes(x = tonnage_difference)) +
+  geom_density(colour = "black", fill = "deepskyblue3", size = 1.1, alpha = 0.8) +
+  geom_vline(xintercept = mean(pair_difference_tonnage_t$tonnage_difference), size = 1.1, color = "coral") +
+  scale_x_continuous(breaks = scales::pretty_breaks(n = 8), labels = function(x) format(x, big.mark = " ", scientific = FALSE)) +
+  xlab("Pair Difference in Tonnage") + ylab("Density") +
+  custom_theme
+
+# we print the graph
+graph_tonnage_difference_density
+
+# save the graph
+ggsave(graph_tonnage_difference_density, filename = here::here("3.outputs", "1.figures", "2.analysis_pollution", "1.cruise_experiment", "1.checking_matching_procedure", "graph_tonnage_difference_cruise_tonnage_density.pdf"), 
+       width = 30, height = 20, units = "cm", device = cairo_pdf)
+````
+
+To check which hypothetical intervention we study, we plot below the average tonnage for each day and for treated and control groups :
+
+```{R, echo=TRUE, message = FALSE, warning = FALSE, layout="l-body-outset", fig.width=25, fig.height=18, dev = "CairoPNG"}
+# compute mean tonnage for each day
+data_mean_tonnage_day <- data_matched %>%
+  # select relevant variables
+  select(pair_number, is_treated, contains("total_gross_tonnage_cruise")) %>%
+  # transform data in long format
+  pivot_longer(cols = -c(pair_number, is_treated), names_to = "variable", values_to = "tonnage") %>%
+  # create the day variable
+  mutate(time = 0 %>%
+           ifelse(str_detect(variable, "lag_1"), -1, .) %>%
+           ifelse(str_detect(variable, "lag_2"), -2, .) %>%
+           ifelse(str_detect(variable, "lag_3"), -3, .) %>%
+           ifelse(str_detect(variable, "lag_4"), -4, .) %>%
+           ifelse(str_detect(variable, "lag_5"), -5, .) %>%
+           ifelse(str_detect(variable, "lag_6"), -6, .) %>%
+           ifelse(str_detect(variable, "lead_1"), 1, .) %>%
+           ifelse(str_detect(variable, "lead_2"), 2, .) %>%
+           ifelse(str_detect(variable, "lead_3"), 3, .) %>%
+           ifelse(str_detect(variable, "lead_4"), 4, .) %>%
+           ifelse(str_detect(variable, "lead_5"), 5, .) %>%
+           ifelse(str_detect(variable, "lead_6"), 6, .)) %>%
+  # rename the labels of the is_treated dummy
+  mutate(is_treated = ifelse(is_treated == TRUE, "Treated", "Control")) %>%
+  # compute the mean tonnage for each day and pollutant
+  group_by(variable, is_treated, time) %>%
+  summarise(tonnage = mean(tonnage, na.rm = TRUE))
+
+# plot the graph
+graph_mean_tonnage_day<- ggplot(data_mean_tonnage_day, aes(x=as.factor(time), y = tonnage, group = is_treated, colour = is_treated, fill = is_treated))  +
+  geom_segment(
+    x = 2,
+    y = 0,
+    xend = 2,
+    yend = 220233,
+    lineend = "round",
+    # See available arrow types in example above
+    linejoin = "round",
+    size = 0.5,
+    colour = "black"
+  ) +
+  geom_line() +
+  geom_point(shape = 21,
+             size = 8,
+             colour = "black") +
+  scale_colour_manual(values = c("deepskyblue3", "tomato")) +
+  scale_fill_manual(values = c("deepskyblue3", "tomato")) +
+  scale_y_continuous(
+    breaks = scales::pretty_breaks(n = 5),
+    labels = function(x)
+      format(x, big.mark = " ", scientific = FALSE)
+  ) +
+  labs(fill = "Group:") +
+  xlab("Day") + ylab("Daily Cruise Gross Tonnage") +
+  custom_theme +
+  guides(color = FALSE) +
+  theme(
+    # axis titles parameters
+    axis.title.x = element_text(size=40, face = "bold", margin = margin(t = 20, r = 0, b = 0, l =0)),
+    axis.title.y = element_text(size=40, face = "bold", margin = margin(t = 0, r = 20, b = 0, l = 0)),
+    # axis texts
+    axis.text.x = element_text(size=30),
+    axis.text.y = element_text(size=30),
+    # facet texts
+    strip.text.x = element_text(size=40, face = "bold"),
+    strip.text.y = element_text(size=40, face = "bold"),
+    # legend parameters
+    legend.position = "top",
+    legend.justification = "left",
+    legend.direction = "horizontal"
+  )
+
+# we print the graph
+graph_mean_tonnage_day
+
+# save the graph
+graph_mean_tonnage_day <- graph_mean_tonnage_day +
+  theme(plot.title = element_blank())
+
+ggsave(graph_mean_tonnage_day, filename = here::here("3.outputs", "1.figures", "2.analysis_pollution", "1.cruise_experiment", "1.checking_matching_procedure", "graph_mean_cruise_tonnage_day.pdf"), 
+       width = 60, height = 30, units = "cm", device = cairo_pdf)
+````
+
+
+# Checking Other Vessels' Types Traffic Evolution
+
+We also check how the difference in tonnage for other vessels' types between treated and control units evolves:
+
+```{R, echo=TRUE, message = FALSE, warning = FALSE, layout="l-body-outset", fig.width=25, fig.height=10, dev = "CairoPNG"}
+# we create a table with the tonnage for each pair, 
+# for each vessel type, 
+# and for -6 hours to + 6 hours
+data_vessel_type_tonnage <- data_matched %>%
+  # relabel treatment indicator
+  mutate(is_treated = ifelse(is_treated == TRUE, "treated", "control")) %>%
+  # select relevant variables
+  select(pair_number, is_treated, contains("total_gross_tonnage_cruise"),
+         contains("total_gross_tonnage_ferry"), contains("total_gross_tonnage_other_boat")) %>%
+  # transform data in long format
+  pivot_longer(cols = -c(pair_number, is_treated), names_to = "variable", values_to = "tonnage") %>%
+  # create vessel type variable
+  mutate(vessel_type = NA %>%
+           ifelse(str_detect(variable, "cruise"), "Cruise",.) %>%
+           ifelse(str_detect(variable, "ferry"), "Ferry",.) %>% 
+           ifelse(str_detect(variable, "other_boat"), "Other Types of Vessels",.)) %>%
+  mutate(time = 0 %>%
+           ifelse(str_detect(variable, "lag_1"), -1, .) %>%
+           ifelse(str_detect(variable, "lag_2"), -2, .) %>%
+           ifelse(str_detect(variable, "lag_3"), -3, .) %>%
+           ifelse(str_detect(variable, "lag_4"), -4, .) %>%
+           ifelse(str_detect(variable, "lag_5"), -5, .) %>%
+           ifelse(str_detect(variable, "lag_6"), -6, .) %>%
+           ifelse(str_detect(variable, "lead_1"), 1, .) %>%
+           ifelse(str_detect(variable, "lead_2"), 2, .) %>%
+           ifelse(str_detect(variable, "lead_3"), 3, .) %>%
+           ifelse(str_detect(variable, "lead_4"), 4, .) %>%
+           ifelse(str_detect(variable, "lead_5"), 5, .) %>%
+           ifelse(str_detect(variable, "lead_6"), 6, .)) %>%
+  select(pair_number, vessel_type, is_treated, time, tonnage) %>% 
+  pivot_wider(names_from = is_treated, values_from = tonnage)
+
+# compute the average difference in traffic between treated and control units
+data_mean_difference <- data_vessel_type_tonnage %>%
+  mutate(difference = treated-control) %>%
+  select(-c(treated, control)) %>%
+  group_by(vessel_type, time) %>%
+  summarise(mean_difference = mean(difference, na.rm = TRUE)) %>%
+  ungroup()
+
+# plot the evolution
+graph_tonnage_difference_vessel_type <-
+  ggplot(data_mean_difference,
+         aes(x = as.factor(time), y = mean_difference, group = "l"))  +
+  geom_hline(yintercept = 0) +
+  geom_segment(aes(
+    x = as.factor(time),
+    xend = as.factor(time),
+    y = 0,
+    yend = mean_difference
+  )) +
+  geom_point(
+    shape = 21,
+    size = 8,
+    colour = "black",
+    fill = "deepskyblue3"
+  ) +
+  scale_y_continuous(
+    breaks = scales::pretty_breaks(n = 5),
+    labels = function(x)
+      format(x, big.mark = " ", scientific = FALSE)
+  ) +
+  facet_wrap(~ vessel_type) +
+  xlab("Day") + ylab("Average Difference in\n Total Gross Tonnage") +
+  custom_theme +
+  theme(
+    # axis titles parameters
+    axis.title.x = element_text(size=40, face = "bold", margin = margin(t = 20, r = 0, b = 0, l =0)),
+    axis.title.y = element_text(size=40, face = "bold", margin = margin(t = 0, r = 20, b = 0, l = 0)),
+    # axis texts
+    axis.text.x = element_text(size=30),
+    axis.text.y = element_text(size=30),
+    # facet texts
+    strip.text.x = element_text(size=40, face = "bold"),
+    strip.text.y = element_text(size=40, face = "bold"),
+    # legend parameters
+    legend.position = "top",
+    legend.justification = "left",
+    legend.direction = "horizontal",
+    legend.title = element_text(size=40, face = "bold"),
+    legend.text = element_text(size=30)
+  )
+
+# we print the graph
+graph_tonnage_difference_vessel_type
+
+# save the graph
+ggsave(graph_tonnage_difference_vessel_type, filename = here::here("3.outputs", "1.figures", "2.analysis_pollution", "1.cruise_experiment", "1.checking_matching_procedure", "graph_tonnage_difference_vessel_type.pdf"), 
+       width = 60, height = 20, units = "cm", device = cairo_pdf)
+```` 
+

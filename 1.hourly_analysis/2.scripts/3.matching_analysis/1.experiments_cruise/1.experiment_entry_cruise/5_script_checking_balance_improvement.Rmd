@@ -1,0 +1,1201 @@
+---
+title: "Checking Balance Improvement - Entering Cruise Experiment"
+description: |
+  Comparing hours with entering cruise traffic to hours without. Adjusting for calendar and weather indicators.
+author:
+  - name: Marie-Abèle Bind 
+    url: https://scholar.harvard.edu/marie-abele
+    affiliation: Biostatistics Center, Massachusetts General Hospital
+    affiliation_url: https://biostatistics.massgeneral.org/faculty/marie-abele-bind-phd/
+  - name: Marion Leroutier 
+    url: https://www.parisschoolofeconomics.eu/en/leroutier-marion/work-in-progress/
+    affiliation: Misum, Stockholm School of Economics
+    affiliation_url: https://www.hhs.se/en/persons/l/leroutier-marion/
+  - name: Léo Zabrocki 
+    url: https://lzabrocki.github.io/
+    affiliation: Paris School of Economics
+    affiliation_url: https://www.parisschoolofeconomics.eu/fr/zabrocki-leo/
+date: "`r Sys.Date()`"
+output: 
+    distill::distill_article:
+      keep_md: true
+      toc: true
+      toc_depth: 2
+---
+
+<style>
+body {
+text-align: justify}
+</style>
+
+In this document, we take great care providing all steps and R codes required to check whether our matching procedure allowed to improve covariates balance. We compare hours where:
+
+* treated units are hours with positive entering cruise traffic in t.
+* control units are hours without entering cruise traffic in t.
+
+We adjust for calendar calendar indicator and weather confouding factors.
+
+**Should you have any questions, need help to reproduce the analysis or find coding errors, please do not hesitate to contact us at leo.zabrocki@psemail.eu and marion.leroutier@psemail.eu.**
+
+# Required Packages
+
+To reproduce exactly the `5_script_checking_balance_improvement.html` document, we first need to have installed:
+
+* the [R](https://www.r-project.org/) programming language 
+* [RStudio](https://rstudio.com/), an integrated development environment for R, which will allow you to knit the `5_script_checking_balance_figures.Rmd` file and interact with the R code chunks
+* the [R Markdown](https://rmarkdown.rstudio.com/) package
+* and the [Distill](https://rstudio.github.io/distill/) package which provides the template for this document. 
+
+Once everything is set up, we have to load the following packages:
+
+```{r, echo = TRUE, message = FALSE, warning = FALSE}
+# load required packages
+library(knitr) # for creating the R Markdown document
+library(here) # for files paths organization
+library(tidyverse) # for data manipulation and visualization
+library(ggridges) # for ridge density plots
+library(Cairo) # for printing customed police of graphs
+library(patchwork) # combining plots
+```
+
+We finally load our customed `ggplot2` theme for graphs:
+
+```{r, echo = TRUE, message = FALSE, warning = FALSE}
+# load ggplot customed theme
+source(
+  here::here(
+    "2.scripts",
+    "4.custom_ggplot2_theme",
+    "script_custom_ggplot_theme.R"
+  )
+)
+````
+
+The theme is based on the fantastic [hrbrthemes](https://hrbrmstr.github.io/hrbrthemes/index.html) package. If you do not want to use this theme or are unable to install it because of fonts issues, you can use the `theme_bw()` already included in the `ggplot2` package.
+
+# Preparing the Data
+
+We load the matching and matched data and bind them together:
+
+```{R, echo = TRUE}
+# load matched data
+data_matched <-
+  readRDS(
+    here::here(
+      "1.data",
+      "2.data_for_analysis",
+      "1.matched_data",
+      "1.experiments_cruise",
+      "1.experiment_entry_cruise",
+      "matched_data_entry_cruise.RDS"
+    )
+  ) %>%
+  mutate(dataset = "Matched Data")
+
+# load matching data
+data_matching <-
+  readRDS(
+    here::here(
+      "1.data",
+      "2.data_for_analysis",
+      "1.matched_data",
+      "1.experiments_cruise",
+      "1.experiment_entry_cruise",
+      "matching_data.rds"
+    )
+  ) %>%
+  mutate(dataset = "Inital Data")
+
+# bind the two datasets
+data <- bind_rows(data_matched, data_matching)
+```
+
+We also load the initial data to select the lags of variables at the **daily** level:
+
+```{R, echo = TRUE}
+# load initial data
+data_daily <-
+  readRDS(
+    here::here(
+      "1.data",
+      "2.data_for_analysis",
+      "0.main_data",
+      "data_for_analysis_hourly.RDS"
+    )
+  ) %>%
+  select(
+    date,
+    daily_mean_no2_sl_lag_1:daily_mean_o3_l_lag_2,
+    daily_rainfall_height_dummy_lag_1:daily_humidity_average_lag_2
+  )
+```
+
+We merge the `matched_data` with the `data_daily` :
+
+```{R, echo = TRUE}
+data <- data %>%
+  left_join(., data_daily, by = "date")
+```
+
+We change labels of the `is_treated` variable :
+
+```{R, echo = TRUE}
+data <- data %>%
+  mutate(is_treated = ifelse(is_treated == "TRUE", "True", "False"))
+```
+
+# Love Plots
+
+### Continuous Weather Covariates
+
+```{R, echo=TRUE, message = FALSE, warning = FALSE, layout="l-body-outset", fig.width=26, fig.height=10, dev = "CairoPNG"}
+# compute figures for the love plot
+data_weather_continuous <- data %>%
+  select(
+    dataset,
+    is_treated,
+    pair_number,
+    contains("temperature"),
+    contains("humidity"),
+    contains("wind_speed")
+  ) %>%
+  pivot_longer(
+    cols = -c(pair_number, is_treated, dataset),
+    names_to = "variable",
+    values_to = "values"
+  ) %>%
+  mutate(
+    weather_variable = NA %>%
+      ifelse(
+        str_detect(variable, "temperature_average"),
+        "Average Temperature",
+        .
+      ) %>%
+      ifelse(
+        str_detect(variable, "humidity_average"),
+        "Humidity Average",
+        .
+      ) %>%
+      ifelse(str_detect(variable, "wind_speed"), "Wind Speed", .)
+  ) %>%
+  mutate(
+    time = 0 %>%
+      ifelse(str_detect(variable, "lag_1"),-1, .) %>%
+      ifelse(str_detect(variable, "lag_2"),-2, .) %>%
+      ifelse(str_detect(variable, "lag_3"),-3, .) %>%
+      ifelse(str_detect(variable, "lead_1"), 1, .) %>%
+      ifelse(str_detect(variable, "lead_2"), 2, .) %>%
+      ifelse(str_detect(variable, "lead_3"), 3, .)
+  ) %>%
+  filter(time<= 0) %>%
+  mutate(level = "Hourly" %>%
+           ifelse(str_detect(variable, "daily"), "Daily", .)) %>%
+  filter(!is.na(time)) %>%
+  mutate(level_time = paste(level, "Lag", time, sep = " ")) %>%
+  select(dataset,
+         pair_number,
+         is_treated,
+         weather_variable,
+         level_time,
+         values)
+
+data_abs_difference_continuous_weather <-
+  data_weather_continuous %>%
+  group_by(dataset, weather_variable, level_time, is_treated) %>%
+  summarise(mean_values = mean(values, na.rm = TRUE)) %>%
+  summarise(abs_difference = abs(mean_values[2] - mean_values[1]))
+
+data_sd_weather_continuous <-  data_weather_continuous %>%
+  filter(is_treated == "True") %>%
+  group_by(dataset, weather_variable, level_time, is_treated) %>%
+  summarise(sd_treatment = sd(values, na.rm = TRUE)) %>%
+  ungroup() %>%
+  select(dataset, weather_variable, level_time, sd_treatment)
+
+data_love_continuous_weather <-
+  left_join(
+    data_abs_difference_continuous_weather,
+    data_sd_weather_continuous,
+    by = c("dataset", "weather_variable", "level_time")
+  ) %>%
+  mutate(standardized_difference = abs_difference / sd_treatment) %>%
+  select(-c(abs_difference, sd_treatment)) %>%
+  mutate(level_time = fct_relevel(level_time, "Daily Lag -1", "Daily Lag -2", "Hourly Lag 0", "Hourly Lag -1", "Hourly Lag -2", "Hourly Lag -3"))
+
+
+
+# make the graph
+graph_love_plot_continuous_weather <-
+  ggplot(
+    data_love_continuous_weather,
+    aes(
+      y = fct_rev(level_time),
+      x = standardized_difference,
+      colour = fct_rev(dataset),
+      shape = fct_rev(dataset),
+    )
+  ) +
+  geom_vline(xintercept = 0) +
+  geom_vline(xintercept = 0.1,
+             color = "black",
+             linetype = "dashed") +
+  geom_point(
+    size = 8,
+    alpha = 0.8
+  ) +
+  scale_colour_manual(name = "Dataset: ", values = c("deepskyblue3", "coral")) +
+  scale_shape_manual(name = "Dataset: ", values = c(16, 17)) +
+  facet_wrap( ~ weather_variable, scales = "free_y") +
+  xlab("Standardized Mean Differences") +
+  ylab("") +
+  #labs(colour = "Datset:") +
+  custom_theme +
+  theme(
+    legend.position = "top",
+    legend.justification = "left",
+    legend.direction = "horizontal",
+    plot.margin = margin(1, 1, 1, -1, "cm"))
+
+# plot the graph
+graph_love_plot_continuous_weather
+
+# save the graph
+ggsave(
+  graph_love_plot_continuous_weather,
+  filename = here::here(
+    "3.outputs",
+    "1.figures",
+    "2.experiments_cruise",
+    "1.experiment_entry_cruise",
+    "1.checking_matching_procedure",
+    "graph_love_plot_continuous_weather.pdf"
+  ),
+  width = 55,
+  height = 20,
+  units = "cm",
+  device = cairo_pdf
+)
+```
+
+### Categorical Weather Covariates
+
+```{R, echo=TRUE, message = FALSE, warning = FALSE, layout="l-body-outset", fig.width=26, fig.height=10, dev = "CairoPNG"}
+# compute figures for the love plot
+data_weather_categorical <- data %>%
+  select(
+    dataset,
+    is_treated,
+    contains("rainfall_height_dummy"),
+    contains("wind_direction_categories")
+  ) %>%
+  mutate_at(vars(contains("rainfall")), ~ ifelse(. == 1, "True", "False")) %>%
+  mutate_all( ~ as.character(.)) %>%
+  pivot_longer(
+    cols = -c(dataset, is_treated),
+    names_to = "variable",
+    values_to = "values"
+  ) %>%
+  # group by is_treated, variable and values
+  group_by(dataset, is_treated, variable, values) %>%
+  # compute the number of observations
+  summarise(n = n()) %>%
+  # compute the proportion
+  mutate(freq = round(n / sum(n) * 100, 0)) %>%
+  ungroup() %>%
+  mutate(
+    weather_variable = NA %>%
+      ifelse(str_detect(variable, "wind"), "Wind Direction", .) %>%
+      ifelse(str_detect(variable, "rainfall"), "Rainfall Dummy", .)
+  ) %>%
+  mutate(
+    time = 0 %>%
+      ifelse(str_detect(variable, "lag_1"),-1, .) %>%
+      ifelse(str_detect(variable, "lag_2"),-2, .) %>%
+      ifelse(str_detect(variable, "lag_3"),-3, .) %>%
+      ifelse(str_detect(variable, "lead_1"), 1, .) %>%
+      ifelse(str_detect(variable, "lead_2"), 2, .) %>%
+      ifelse(str_detect(variable, "lead_3"), 3, .)
+  ) %>%
+  filter(time<= 0) %>%
+  mutate(level = "Hourly" %>%
+           ifelse(str_detect(variable, "daily"), "Daily", .)) %>%
+  filter(!is.na(time)) %>%
+  mutate(variable = paste(level, weather_variable, "\nLag", time, sep = " ")) %>%
+  select(dataset, is_treated, weather_variable, variable, values, freq) %>%
+  pivot_wider(names_from = is_treated, values_from = freq) %>%
+  mutate(abs_difference = abs(`True` - `False`)) %>%
+  filter(values != "False")
+
+# create the figure for wind direction
+graph_love_plot_wind_direction <- data_weather_categorical %>%
+  filter(weather_variable == "Wind Direction") %>%
+  mutate(variable = fct_relevel(variable, "Daily Wind Direction \nLag -1", "Daily Wind Direction \nLag -2", "Hourly Wind Direction \nLag 0", "Hourly Wind Direction \nLag -1", "Hourly Wind Direction \nLag -2", "Hourly Wind Direction \nLag -3")) %>%
+  ggplot(., aes(
+    y = fct_rev(values),
+    x = abs_difference,
+    colour = fct_rev(dataset),
+    shape = fct_rev(dataset)
+  )) +
+  geom_vline(xintercept = 0) +
+  geom_point(
+    size = 8,
+    alpha = 0.8
+  ) +
+  scale_colour_manual(name = "Dataset: ", values = c("deepskyblue3", "coral")) +
+  scale_shape_manual(name = "Dataset: ", values = c(16, 17)) +
+  facet_wrap( ~ variable, scales = "free_y", ncol = 4) +
+  xlab("Absolute Difference in Percentage Points") +
+  ylab("") +
+  custom_theme +
+  theme(
+    legend.position = "top",
+    legend.justification = "left",
+    legend.direction = "horizontal",
+    plot.margin = margin(1, 1, 1, -1, "cm")
+
+  )
+
+# print the figure for wind direction
+graph_love_plot_wind_direction
+
+# save the figure for wind direction
+ggsave(
+  graph_love_plot_wind_direction,
+  filename = here::here(
+    "3.outputs",
+    "1.figures",
+    "2.experiments_cruise",
+    "1.experiment_entry_cruise",
+    "1.checking_matching_procedure",
+    "graph_love_plot_wind_direction.pdf"
+  ),
+  width = 60,
+  height = 30,
+  units = "cm",
+  device = cairo_pdf
+)
+
+# create the figure for rainfall dummy
+graph_love_plot_rainfall <- data_weather_categorical %>%
+  filter(weather_variable == "Rainfall Dummy") %>%
+  mutate(variable = fct_relevel(variable, "Daily Rainfall Dummy \nLag -1", "Daily Rainfall Dummy \nLag -2", "Hourly Rainfall Dummy \nLag 0", "Hourly Rainfall Dummy \nLag -1", "Hourly Rainfall Dummy \nLag -2", "Hourly Rainfall Dummy \nLag -3")) %>%
+  ggplot(., aes(
+    y = fct_rev(variable),
+    x = abs_difference,
+    colour = fct_rev(dataset),
+    shape = fct_rev(dataset)
+  )) +
+  geom_vline(xintercept = 0) +
+  geom_point(
+    size = 8,
+    alpha = 0.8
+  ) +
+  scale_colour_manual(name = "Dataset: ", values = c("deepskyblue3", "coral")) +
+  scale_shape_manual(name = "Dataset: ", values = c(16, 17)) +
+  xlab("Absolute Difference in Percentage Points") +
+  ylab("") +
+  custom_theme +
+  theme(
+    legend.position = "top",
+    legend.justification = "left",
+    legend.direction = "horizontal",
+    plot.margin = margin(1, 1, 1, -1, "cm")
+  )
+
+# print the figure for rainfall dummy
+graph_love_plot_rainfall
+
+# save the figure for rainfall dummy
+ggsave(
+  graph_love_plot_rainfall,
+  filename = here::here(
+    "3.outputs",
+    "1.figures",
+    "2.experiments_cruise",
+    "1.experiment_entry_cruise",
+    "1.checking_matching_procedure",
+    "graph_love_plot_rainfall.pdf"
+  ),
+  width = 30,
+  height = 30,
+  units = "cm",
+  device = cairo_pdf
+)
+```
+
+### Pollutants
+
+```{R, echo=TRUE, message = FALSE, warning = FALSE, layout="l-body-outset", fig.width=26, fig.height=15, dev = "CairoPNG"}
+# compute figures for the love plot
+data_pollutants <- data %>%
+  select(
+    dataset,
+    is_treated,
+    pair_number,
+    contains("no2"),
+    contains("o3"),
+    contains("pm10"),
+    contains("pm25"),
+    contains("so2")
+  ) %>%
+  pivot_longer(
+    cols = -c(pair_number, is_treated, dataset),
+    names_to = "variable",
+    values_to = "values"
+  ) %>%
+  mutate(
+    pollutant = NA %>%
+      ifelse(str_detect(variable, "no2_l"), "NO2 Longchamp", .) %>%
+      ifelse(str_detect(variable, "no2_sl"), "NO2 Saint-Louis", .) %>%
+      ifelse(str_detect(variable, "o3"), "O3 Lonchamp", .) %>%
+      ifelse(str_detect(variable, "pm10_l"), "PM10 Longchamp", .) %>%
+      ifelse(str_detect(variable, "pm10_sl"), "PM10 Saint-Louis", .) %>%
+      ifelse(str_detect(variable, "pm25"), "PM2.5 Longchamp", .) %>%
+      ifelse(str_detect(variable, "so2"), "SO2 Longchamp", .)
+  ) %>%
+  mutate(
+    time = 0 %>%
+      ifelse(str_detect(variable, "lag_1"),-1, .) %>%
+      ifelse(str_detect(variable, "lag_2"),-2, .) %>%
+      ifelse(str_detect(variable, "lag_3"),-3, .) %>%
+      ifelse(str_detect(variable, "lead_1"), 1, .) %>%
+      ifelse(str_detect(variable, "lead_2"), 2, .) %>%
+      ifelse(str_detect(variable, "lead_3"), 3, .)
+  ) %>%
+  filter(time<= 0) %>%
+  mutate(level = "Hourly" %>%
+           ifelse(str_detect(variable, "daily"), "Daily", .)) %>%
+  filter(!is.na(time)) %>%
+  mutate(level_time = paste(level, "Lag", time, sep = " ")) %>%
+  select(dataset,
+         pair_number,
+         is_treated,
+         pollutant,
+         level_time,
+         values)
+
+data_abs_difference_pollutants <- data_pollutants %>%
+  group_by(dataset, pollutant, level_time, is_treated) %>%
+  summarise(mean_values = mean(values, na.rm = TRUE)) %>%
+  summarise(abs_difference = abs(mean_values[2] - mean_values[1]))
+
+data_sd_pollutants <-  data_pollutants %>%
+  filter(is_treated == "True") %>%
+  group_by(dataset, pollutant, level_time, is_treated) %>%
+  summarise(sd_treatment = sd(values, na.rm = TRUE)) %>%
+  ungroup() %>%
+  select(dataset, pollutant, level_time, sd_treatment)
+
+data_love_pollutants <-
+  left_join(data_abs_difference_pollutants,
+            data_sd_pollutants,
+            by = c("dataset", "pollutant", "level_time")) %>%
+  mutate(standardized_difference = abs_difference / sd_treatment) %>%
+  select(-c(abs_difference, sd_treatment)) %>%
+  mutate(level_time = fct_relevel(level_time, "Daily Lag -1", "Daily Lag -2", "Hourly Lag 0", "Hourly Lag -1", "Hourly Lag -2", "Hourly Lag -3"))
+
+# create the graph
+graph_love_plot_pollutants <-
+  ggplot(data_love_pollutants,
+         aes(
+           y = fct_rev(level_time),
+           x = standardized_difference,
+           colour = fct_rev(dataset),
+           shape = fct_rev(dataset)
+         )) +
+  geom_vline(xintercept = 0) +
+  geom_vline(xintercept = 0.1,
+             color = "black",
+             linetype = "dashed") +
+  geom_point(
+    size = 8,
+    alpha = 0.8
+  ) +
+  scale_colour_manual(name = "Dataset: ", values = c("deepskyblue3", "coral")) +
+  scale_shape_manual(name = "Dataset: ", values = c(16, 17)) +
+  facet_wrap( ~ pollutant, scales = "free_y") +
+  xlab("Standardized Mean Differences") +
+  ylab("") +
+  custom_theme +
+  theme(
+    legend.position = "top",
+    legend.justification = "left",
+    legend.direction = "horizontal",
+    plot.margin = margin(1, 1, 1, -1, "cm")
+
+  )
+
+# print the graph
+graph_love_plot_pollutants
+
+# save the graph
+ggsave(
+  graph_love_plot_pollutants,
+  filename = here::here(
+    "3.outputs",
+    "1.figures",
+    "2.experiments_cruise",
+    "1.experiment_entry_cruise",
+    "1.checking_matching_procedure",
+    "graph_love_plot_pollutants.pdf"
+  ),
+  width = 60,
+  height = 40,
+  units = "cm",
+  device = cairo_pdf
+)
+```
+
+
+### Vessels Traffic
+
+```{R, echo=TRUE, message = FALSE, warning = FALSE, layout="l-body-outset", fig.width=26, fig.height=15, dev = "CairoPNG"}
+# compute figures for the love plot
+data_tonnage <-  data %>%
+  # select relevant variables
+  select(
+    dataset,
+    pair_number,
+    is_treated,
+    contains("total_gross_tonnage_entry_cruise"),
+    contains("total_gross_tonnage_exit_cruise"),
+    contains("total_gross_tonnage_entry_ferry"),
+    contains("total_gross_tonnage_exit_ferry"),
+    contains("total_gross_tonnage_entry_other_vessels"),
+    contains("total_gross_tonnage_exit_other_vessels")
+  ) %>%
+  # transform data in long format
+  pivot_longer(
+    cols = -c(dataset, pair_number, is_treated),
+    names_to = "variable",
+    values_to = "tonnage"
+  ) %>%
+  # create vessel type variable
+  mutate(
+    vessel_type = NA %>%
+      ifelse(str_detect(variable, "cruise"), "Cruise", .) %>%
+      ifelse(str_detect(variable, "ferry"), "Ferry", .) %>%
+      ifelse(str_detect(variable, "other_vessels"), "Other Vessels", .)
+  ) %>%
+  # create the day variable
+  mutate(entry_exit = NA %>%
+           ifelse(str_detect(variable, "entry"), "Entry", .) %>%
+           ifelse(str_detect(variable, "exit"), "Exit", .)) %>%
+  mutate(
+    time = 0 %>%
+      ifelse(str_detect(variable, "lag_1"),-1, .) %>%
+      ifelse(str_detect(variable, "lag_2"),-2, .) %>%
+      ifelse(str_detect(variable, "lag_3"),-3, .) %>%
+      ifelse(str_detect(variable, "lead_1"), 1, .) %>%
+      ifelse(str_detect(variable, "lead_2"), 2, .) %>%
+      ifelse(str_detect(variable, "lead_3"), 3, .)
+  ) %>%
+  select(dataset,
+         pair_number,
+         vessel_type,
+         is_treated,
+         entry_exit,
+         time,
+         tonnage)
+
+data_abs_difference_tonnage <- data_tonnage %>%
+  group_by(dataset, vessel_type, entry_exit, time, is_treated) %>%
+  summarise(mean_tonnage = mean(tonnage, na.rm = TRUE)) %>%
+  summarise(abs_difference = abs(mean_tonnage[2] - mean_tonnage[1]))
+
+data_sd_tonnage <-  data_tonnage %>%
+  filter(is_treated == "True") %>%
+  group_by(dataset, vessel_type, entry_exit, time, is_treated) %>%
+  summarise(sd_treatment = sd(tonnage, na.rm = TRUE)) %>%
+  ungroup() %>%
+  select(dataset, vessel_type, entry_exit, time, sd_treatment)
+
+data_love_tonnage <-
+  left_join(
+    data_abs_difference_tonnage,
+    data_sd_tonnage,
+    by = c("dataset", "vessel_type", "entry_exit", "time")
+  ) %>%
+  mutate(standardized_difference = abs_difference / sd_treatment) %>%
+  select(-c(abs_difference, sd_treatment)) %>%
+  filter(!(vessel_type == "Cruise" & time == 0))
+
+# create the graph
+graph_love_plot_tonnage <-
+  ggplot(data_love_tonnage,
+         aes(
+           x = standardized_difference,
+           y = as.factor(time),
+           colour = fct_rev(dataset),
+           shape = fct_rev(dataset)
+         )) +
+  geom_vline(xintercept = 0) +
+  geom_vline(xintercept = 0.1,
+             color = "black",
+             linetype = "dashed") +
+  geom_point(
+    size = 8,
+    alpha = 0.8
+  ) +
+  scale_colour_manual(name = "Dataset: ", values = c("deepskyblue3", "coral")) +
+  scale_shape_manual(name = "Dataset: ", values = c(16, 17)) +
+  facet_grid(entry_exit ~ vessel_type) +
+  xlab("Standardized Mean Differences") +
+  ylab("Hour") +
+  custom_theme +
+  theme(
+    legend.position = "top",
+    legend.justification = "left",
+    legend.direction = "horizontal"
+  )
+
+# print the graph
+graph_love_plot_tonnage
+
+# save the graph
+ggsave(
+  graph_love_plot_tonnage,
+  filename = here::here(
+    "3.outputs",
+    "1.figures",
+    "2.experiments_cruise",
+    "1.experiment_entry_cruise",
+    "1.checking_matching_procedure",
+    "graph_love_plot_tonnage.pdf"
+  ),
+  width = 40,
+  height = 40,
+  units = "cm",
+  device = cairo_pdf
+)
+```
+
+### Road Traffic
+
+```{R, echo=TRUE, message = FALSE, warning = FALSE, layout="l-body-outset", fig.width=10, fig.height=10, dev = "CairoPNG"}
+# compute figures for the love plot
+data_road <- data %>%
+  # select relevant variables
+  select(dataset,
+         pair_number,
+         is_treated,
+         contains("road_traffic_flow")) %>%
+  # transform data in long format
+  pivot_longer(
+    cols = -c(dataset, pair_number, is_treated),
+    names_to = "road_traffic",
+    values_to = "value"
+  ) %>%
+  mutate(
+    time = 0 %>%
+      ifelse(str_detect(road_traffic, "lag_1"),-1, .) %>%
+      ifelse(str_detect(road_traffic, "lag_2"),-2, .) %>%
+      ifelse(str_detect(road_traffic, "lag_3"),-3, .) %>%
+      ifelse(str_detect(road_traffic, "lead_1"), 1, .) %>%
+      ifelse(str_detect(road_traffic, "lead_2"), 2, .) %>%
+      ifelse(str_detect(road_traffic, "lead_3"), 3, .)
+  ) %>%
+  select(dataset, pair_number, road_traffic, is_treated, time, value)
+
+data_abs_difference_road <- data_road %>%
+  group_by(dataset, road_traffic, time, is_treated) %>%
+  summarise(mean_value = mean(value, na.rm = TRUE)) %>%
+  summarise(abs_difference = abs(mean_value[2] - mean_value[1]))
+
+data_sd_tonnage <-  data_road %>%
+  filter(is_treated == "True") %>%
+  group_by(dataset, road_traffic, time, is_treated) %>%
+  summarise(sd_treatment = sd(value, na.rm = TRUE)) %>%
+  ungroup() %>%
+  select(dataset, road_traffic, time, sd_treatment)
+
+data_love_road <-
+  left_join(data_abs_difference_road,
+            data_sd_tonnage,
+            by = c("dataset", "road_traffic", "time")) %>%
+  mutate(standardized_difference = abs_difference / sd_treatment) %>%
+  select(-c(abs_difference, sd_treatment))
+
+
+# create the graph
+graph_love_plot_road <-
+  ggplot(
+    data_love_road,
+    aes(
+      x = standardized_difference,
+      y = as.factor(time),
+      colour = fct_rev(dataset),
+      shape = fct_rev(dataset)
+    )
+  ) +
+  geom_vline(xintercept = 0) +
+  geom_vline(xintercept = 0.1,
+             color = "black",
+             linetype = "dashed") +
+  geom_point(size = 8, alpha = 0.8) +
+  scale_colour_manual(name = "Dataset:", values = c("deepskyblue3", "coral")) +
+  scale_shape_manual(name = "Dataset:", values = c(16, 17)) +
+  xlab("Standardized Mean Differences") +
+  ylab("Hour") +
+  custom_theme +
+  theme(
+    legend.position = "top",
+    legend.justification = "left",
+    legend.direction = "horizontal"
+  )
+
+# print the graph
+graph_love_plot_road
+
+# save the graph
+ggsave(
+  graph_love_plot_road,
+  filename = here::here(
+    "3.outputs",
+    "1.figures",
+    "2.experiments_cruise",
+    "1.experiment_entry_cruise",
+    "1.checking_matching_procedure",
+    "graph_love_plot_road.pdf"
+  ),
+  width = 25,
+  height = 20,
+  units = "cm",
+  device = cairo_pdf
+)
+```
+
+### Calendar Indicators
+
+Create the relevant data:
+
+```{R, echo=TRUE, message = FALSE, warning = FALSE, layout="l-body-outset", fig.width=60, fig.height=20, dev = "CairoPNG"}
+# compute figures for the love plot
+data_calendar <- data %>%
+  mutate(weekday = lubridate::wday(date, abbr = FALSE, label = TRUE)) %>%
+  select(dataset,
+         is_treated,
+         hour,
+         weekday,
+         holidays_dummy,
+         bank_day_dummy,
+         month,
+         year) %>%
+  mutate_at(vars(holidays_dummy, bank_day_dummy),
+            ~ ifelse(. == 1, "True", "False")) %>%
+  mutate_all( ~ as.character(.)) %>%
+  pivot_longer(
+    cols = -c(dataset, is_treated),
+    names_to = "variable",
+    values_to = "values"
+  ) %>%
+  # group by is_treated, variable and values
+  group_by(dataset, is_treated, variable, values) %>%
+  # compute the number of observations
+  summarise(n = n()) %>%
+  # compute the proportion
+  mutate(freq = round(n / sum(n) * 100, 0)) %>%
+  ungroup() %>%
+  mutate(
+    calendar_variable = NA %>%
+      ifelse(str_detect(variable, "hour"), "Hour", .) %>%
+      ifelse(str_detect(variable, "weekday"), "Day of the Week", .) %>%
+      ifelse(str_detect(variable, "holidays_dummy"), "Holidays", .) %>%
+      ifelse(str_detect(variable, "bank_day_dummy"), "Bank Day", .) %>%
+      ifelse(str_detect(variable, "month"), "Month", .) %>%
+      ifelse(str_detect(variable, "year"), "Year", .)
+  ) %>%
+  select(dataset, is_treated, calendar_variable, values, freq) %>%
+  pivot_wider(names_from = is_treated, values_from = freq) %>%
+  mutate(abs_difference = abs(`True` - `False`)) %>%
+  filter(values != "False")
+```
+
+Plot for hours:
+
+```{R, echo=TRUE, message = FALSE, warning = FALSE, layout="l-body-outset", fig.width=30, fig.height=15, dev = "CairoPNG"}
+# graph for hour
+graph_love_plot_hour <- data_calendar %>%
+  filter(calendar_variable == "Hour") %>%
+  ggplot(., aes(
+    y = as.factor(as.numeric(values)),
+    x = abs_difference,
+    colour = fct_rev(dataset),
+    shape = fct_rev(dataset)
+  )) +
+  geom_vline(xintercept = 0) +
+  geom_point(size = 8, alpha = 0.8) +
+  scale_colour_manual(name = "Dataset:", values = c("deepskyblue3", "coral")) +
+  scale_shape_manual(name = "Dataset:", values = c(16, 17)) +
+  xlab("Absolute Difference in Percentage Points") +
+  ylab("") +
+  custom_theme +
+  theme(
+    legend.position = "top",
+    legend.justification = "left",
+    legend.direction = "horizontal"
+  )
+
+# print the plot
+graph_love_plot_hour
+
+# save the plot
+ggsave(
+  graph_love_plot_hour,
+  filename = here::here(
+    "3.outputs",
+    "1.figures",
+    "2.experiments_cruise",
+    "1.experiment_entry_cruise",
+    "1.checking_matching_procedure",
+    "graph_love_plot_hour.pdf"
+  ),
+  width = 30,
+  height = 30,
+  units = "cm",
+  device = cairo_pdf
+)
+```
+
+Plot for bank days and holidays:
+
+```{R, echo=TRUE, message = FALSE, warning = FALSE, layout="l-body-outset", fig.width=30, fig.height=15, dev = "CairoPNG"}
+# graph for bank days and holidays
+graph_love_plot_bank_holidays <- data_calendar %>%
+  filter(calendar_variable %in% c("Bank Day", "Holidays")) %>%
+  ggplot(., aes(
+    y = values,
+    x = abs_difference,
+    colour = fct_rev(dataset),
+    shape = fct_rev(dataset)
+  )) +
+  geom_vline(xintercept = 0) +
+  geom_point(size = 8, alpha = 0.8) +
+  scale_colour_manual(name = "Dataset:", values = c("deepskyblue3", "coral")) +
+  scale_shape_manual(name = "Dataset:", values = c(16, 17)) +
+  facet_wrap( ~ calendar_variable) +
+  xlab("Absolute Difference in Percentage Points") +
+  ylab("") +
+  custom_theme +
+  theme(
+    legend.position = "top",
+    legend.justification = "left",
+    legend.direction = "horizontal"
+  )
+
+# print the plot
+graph_love_plot_bank_holidays
+
+# save the plot
+ggsave(
+  graph_love_plot_bank_holidays,
+  filename = here::here(
+    "3.outputs",
+    "1.figures",
+    "2.experiments_cruise",
+    "1.experiment_entry_cruise",
+    "1.checking_matching_procedure",
+    "graph_love_plot_bank_holidays.pdf"
+  ),
+  width = 30,
+  height = 20,
+  units = "cm",
+  device = cairo_pdf
+)
+```
+
+Plot for days of the week:
+
+```{R, echo=TRUE, message = FALSE, warning = FALSE, layout="l-body-outset", fig.width=30, fig.height=15, dev = "CairoPNG"}
+# graph for weekdays
+graph_love_plot_weekday <- data_calendar %>%
+  filter(calendar_variable == "Day of the Week") %>%
+  mutate(
+    values = fct_relevel(
+      values,
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+      "Sunday"
+    )
+  ) %>%
+  ggplot(., aes(
+    y = fct_rev(values),
+    x = abs_difference,
+    colour = fct_rev(dataset),
+    shape = fct_rev(dataset)
+  )) +
+  geom_vline(xintercept = 0) +
+  geom_point(size = 8, alpha = 0.8) +
+  scale_colour_manual(name = "Dataset:", values = c("deepskyblue3", "coral")) +
+  scale_shape_manual(name = "Dataset:", values = c(16, 17)) +
+  xlab("Absolute Difference in Percentage Points") +
+  ylab("") +
+  custom_theme +
+  theme(
+    legend.position = "top",
+    legend.justification = "left",
+    legend.direction = "horizontal"
+  )
+
+# print the plot
+graph_love_plot_weekday
+
+# save the plot
+ggsave(
+  graph_love_plot_weekday,
+  filename = here::here(
+    "3.outputs",
+    "1.figures",
+    "2.experiments_cruise",
+    "1.experiment_entry_cruise",
+    "1.checking_matching_procedure",
+    "graph_love_plot_weekday.pdf"
+  ),
+  width = 30,
+  height = 20,
+  units = "cm",
+  device = cairo_pdf
+)
+```
+
+Plot for months:
+
+```{R, echo=TRUE, message = FALSE, warning = FALSE, layout="l-body-outset", fig.width=30, fig.height=15, dev = "CairoPNG"}
+# graph for month
+graph_love_plot_month <- data_calendar %>%
+  filter(calendar_variable == "Month") %>%
+  mutate(
+    values = fct_relevel(
+      values,
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December"
+    )
+  ) %>%
+  ggplot(., aes(
+    y = fct_rev(values),
+    x = abs_difference,
+    colour = fct_rev(dataset),
+    shape = fct_rev(dataset)
+  )) +
+  geom_vline(xintercept = 0) +
+  geom_point(size = 8, alpha = 0.8) +
+  scale_colour_manual(name = "Dataset:", values = c("deepskyblue3", "coral")) +
+  scale_shape_manual(name = "Dataset:", values = c(16, 17)) +
+  ggtitle("Month") +
+  xlab("Absolute Difference in Percentage Points") +
+  ylab("") +
+  custom_theme +
+  theme(
+    legend.position = "top",
+    legend.justification = "left",
+    legend.direction = "horizontal"
+  )
+
+# print the plot
+graph_love_plot_month
+
+# save the plot
+ggsave(
+  graph_love_plot_month,
+  filename = here::here(
+    "3.outputs",
+    "1.figures",
+    "2.experiments_cruise",
+    "1.experiment_entry_cruise",
+    "1.checking_matching_procedure",
+    "graph_love_plot_month.pdf"
+  ),
+  width = 30,
+  height = 20,
+  units = "cm",
+  device = cairo_pdf
+)
+```
+
+Plot for years:
+
+```{R, echo=TRUE, message = FALSE, warning = FALSE, layout="l-body-outset", fig.width=30, fig.height=15, dev = "CairoPNG"}
+# graph for year
+graph_love_plot_year <- data_calendar %>%
+  filter(calendar_variable == "Year") %>%
+  ggplot(., aes(
+    y = as.factor(as.numeric(values)),
+    x = abs_difference,
+    colour = fct_rev(dataset),
+    shape = fct_rev(dataset)
+  )) +
+  geom_vline(xintercept = 0) +
+  geom_point(size = 8, alpha = 0.8) +
+  scale_colour_manual(name = "Dataset:", values = c("deepskyblue3", "coral")) +
+  scale_shape_manual(name = "Dataset:", values = c(16, 17)) +
+  ggtitle("Year") +
+  xlab("Absolute Difference in Percentage Points") +
+  ylab("") +
+  custom_theme +
+  theme(
+    legend.position = "top",
+    legend.justification = "left",
+    legend.direction = "horizontal"
+  )
+
+# print the graph
+graph_love_plot_year
+
+# save the plot
+ggsave(
+  graph_love_plot_year,
+  filename = here::here(
+    "3.outputs",
+    "1.figures",
+    "2.experiments_cruise",
+    "1.experiment_entry_cruise",
+    "1.checking_matching_procedure",
+    "graph_love_plot_year.pdf"
+  ),
+  width = 30,
+  height = 20,
+  units = "cm",
+  device = cairo_pdf
+)
+```
+
+# Overall Balance Improvement
+
+We finally plot the distribution of standardized mean differences for continuous covariates or the absolute percentage points differences for categorical covariates between treated and control units before and after matching.
+
+### Continuous Covariates
+
+```{R, echo=TRUE, message = FALSE, warning = FALSE, layout="l-body-outset", fig.width=20, fig.height=10, dev = "CairoPNG"}
+# we select the dataset indicator and the standardized difference
+data_love_tonnage <- data_love_tonnage %>%
+  ungroup() %>%
+  filter(time < 0) %>%
+  select(dataset, standardized_difference)
+
+data_love_pollutants <- data_love_pollutants %>%
+  ungroup() %>%
+  filter(parse_number(as.character(level_time))  < 0) %>%
+  select(dataset, standardized_difference)
+
+data_love_continuous_weather <- data_love_continuous_weather %>%
+  ungroup() %>%
+  filter(parse_number(as.character(level_time))  <= 0) %>%
+  select(dataset, standardized_difference)
+
+data_love_road <- data_love_road %>%
+  ungroup() %>%
+  filter(time <= 0) %>%
+  select(dataset, standardized_difference)
+
+data_continuous_love <-
+  bind_rows(data_love_tonnage, data_love_pollutants) %>%
+  bind_rows(., data_love_continuous_weather) %>%
+  bind_rows(., data_love_road)
+
+# create the graph
+graph_boxplot_continuous_balance_improvement <-
+  ggplot(data_continuous_love,
+         aes(x = dataset, y = standardized_difference)) +
+  geom_boxplot(colour = "deepskyblue3", size = 1.2) +
+  scale_y_continuous(breaks = scales::pretty_breaks(n = 5)) +
+  xlab("Dataset") +
+  ylab("Standardized \nMean Differences") +
+  custom_theme +
+  theme(    
+    # axis titles parameters
+    axis.title.x = element_text(size=40, face = "bold", margin = margin(t = 20, r = 0, b = 0, l =0)),
+    axis.title.y = element_text(size=40, face = "bold", margin = margin(t = 0, r = 20, b = 0, l = 0)),
+    # axis texts
+    axis.text.x = element_text(size=30),
+    axis.text.y = element_text(size=30))
+
+# print the graph
+graph_boxplot_continuous_balance_improvement
+
+# save the graph
+ggsave(
+  graph_boxplot_continuous_balance_improvement,
+  filename = here::here(
+    "3.outputs",
+    "1.figures",
+    "2.experiments_cruise",
+    "1.experiment_entry_cruise",
+    "1.checking_matching_procedure",
+    "graph_boxplot_continuous_balance_improvement.pdf"
+  ),
+  width = 30,
+  height = 20,
+  units = "cm",
+  device = cairo_pdf
+)
+```
+
+### Categorical Covariates
+
+```{R, echo=TRUE, message = FALSE, warning = FALSE, layout="l-body-outset", fig.width=20, fig.height=10, dev = "CairoPNG"}
+# we select the dataset indicator and the standardized difference
+data_calendar <- data_calendar %>%
+  ungroup() %>%
+  # we remove the month variable
+  filter(calendar_variable != "Month") %>%
+  select(dataset, abs_difference)
+
+data_weather_categorical <- data_weather_categorical %>%
+  ungroup() %>%
+  select(dataset, abs_difference)
+
+data_categorical_love <-
+  bind_rows(data_calendar, data_weather_categorical)
+
+# create the graph
+graph_boxplot_categorical_balance_improvement <-
+  ggplot(data_weather_categorical, aes(x = dataset, y = abs_difference)) +
+  geom_boxplot(colour = "deepskyblue3", size = 1.2) +
+  scale_y_continuous(breaks = scales::pretty_breaks(n = 5)) +
+  xlab("Dataset") +
+  ylab("Absolute Difference \nin Percentage Points") +
+  custom_theme + 
+  theme(    
+    # axis titles parameters
+    axis.title.x = element_text(size=40, face = "bold", margin = margin(t = 20, r = 0, b = 0, l =0)),
+    axis.title.y = element_text(size=40, face = "bold", margin = margin(t = 0, r = 20, b = 0, l = 0)),
+    # axis texts
+    axis.text.x = element_text(size=30),
+    axis.text.y = element_text(size=30))
+
+# print the graph
+graph_boxplot_categorical_balance_improvement
+
+# save the graph
+ggsave(
+  graph_boxplot_categorical_balance_improvement,
+  filename = here::here(
+    "3.outputs",
+    "1.figures",
+    "2.experiments_cruise",
+    "1.experiment_entry_cruise",
+    "1.checking_matching_procedure",
+    "graph_boxplot_categorical_balance_improvement.pdf"
+  ),
+  width = 30,
+  height = 20,
+  units = "cm",
+  device = cairo_pdf
+)
+```
+
+

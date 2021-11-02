@@ -1,0 +1,58 @@
+variable_name;variable_definition
+date;date of the day in year-month-day
+year;year of the day
+season;season of the day with 1 = january-march, 2 = april-june, 3 = july-september, 4 = october-december
+month;month of the day
+weekday;weekday of the day
+weekend;dummy equal to 1 if the day belongs to a weekend
+holidays_dummy;dummy equal to 1 if the day belongs to a holidays period
+holidays_name;holidays� name in french
+bank_day_dummy;dummy equal to 1 if the day is a bank day
+name_bank_day;name of the bank day in french
+mean_no2_sl;average concentration of no2 in �g/m3 at saint louis station
+mean_no2_l;average concentration of no2 in �g/m3 at longchamp station
+mean_pm10_sl;average concentration of coarse particulate matter (with diameter of 10 ?m or less) in �g/m3 at saint louis station
+mean_pm10_l;average concentration of coarse particulate matter (with diameter of 10 ?m or less) in �g/m3 at longchamp station
+mean_pm25_l;average concentration of fine particulate matter (with diameter of 2.5 ?m or less) in �g/m3 at longchamp station
+mean_so2_l;average concentration of so2 in �g/m3 at longchamp station
+mean_o3_l;average concentration of o3 in �g/m3 at longchamp station
+rainfall_height;rainfall height in mm
+rainfall_duration;rainfall duration in minutes
+temperature_minimum;minimum temperature in �c
+temperature_maximun;maximum temperature in �c
+temperature_average;average temperature in �c
+wind_speed;wind speed in m/s
+wind_direction;wind direction measured on 360� compass where 0 is the true north
+humidity_average;average humidity in %
+n_boats_entry;number of vessels docking the port
+n_boats_entry_ferry;number of ferry vessels docking the port
+n_boats_entry_cruise;number of cruise vessels docking the port
+n_boats_entry_other_boat;number of other types of vessels docking the port
+total_gross_tonnage_entry_ferry;total gross tonnage (unitless) of ferry vessels docking the port
+total_gross_tonnage_entry_cruise;total gross tonnage (unitless) of cruise vessels docking the port
+total_gross_tonnage_entry_other_boat;total gross tonnage (unitless) of other types of vessels docking the port
+total_gross_tonnage_entry;total gross tonnage (unitless) of all vessels docking the port
+n_boats_exit;number of vessels leaving the port
+n_boats_exit_ferry;number of ferry vessels leaving the port
+n_boats_exit_cruise;number of cruise vessels docking the port
+n_boats_exit_other_boat;number of other types of vessels docking the port
+total_gross_tonnage_exit_ferry;total gross tonnage (unitless) of ferry vessels leaving the port
+total_gross_tonnage_exit_cruise;total gross tonnage (unitless) of cruise vessels leaving the port
+total_gross_tonnage_exit_other_boat;total gross tonnage (unitless) of other types of vessels leaving the port
+total_gross_tonnage_exit;total gross tonnage (unitless) of all vessels leaving the port
+n_boats;total number of vessels docking and leaving the port
+n_boats_ferry;total number of ferry vessels docking and leaving the port
+n_boats_other_boat;total number of other types of vessels docking and leaving the port
+n_boats_cruise;total number of cruise vessels docking and leaving the port
+total_gross_tonnage;total gross tonnage (unitless) of vessels docking and leaving the port
+total_gross_tonnage_ferry;total gross tonnage (unitless) of ferry vessels docking and leaving the port
+total_gross_tonnage_other_boat;total gross tonnage (unitless) of other types of vessels docking and leaving the port
+total_gross_tonnage_cruise;total gross tonnage (unitless) of cruise vessels docking and leaving the port
+road_traffic_flow_all;average number of vehicles entering and leaving the city
+road_traffic_flow_trucks;average number of trucks entering and leaving the city
+road_traffic_speed_all;average speed in km/s of vehicles entering and leaving the city
+road_traffic_speed_trucks;average speed in km/s of trucks entering and leaving the city
+road_occupancy_rate;occupancy rate of the road in percentage
+rainfall_height_dummy;dummy equal to 1 if it was raining on that day
+wind_direction_categories;wind directions divided into north-east, south-east, south-west and north-west
+wind_direction_east_west;wind directions divided into east and west

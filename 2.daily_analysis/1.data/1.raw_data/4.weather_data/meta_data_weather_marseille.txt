@@ -1,0 +1,100 @@
+logo
+
+
+  /Notes du produit/
+  Données quotidiennes
+
+    ------------------------------------------------------------------------
+
+    N.B.: La vente, redistribution ou rediffusion des informations
+    reçues, en l'état ou sous forme de produits dérivés, est strictement
+    interdite sans l'accord de METEO-FRANCE
+
+    ------------------------------------------------------------------------
+
+  * Description générale de la fourniture
+
+    Nombre de données commandées	32144
+    Nombre de données fournies 	32078
+    Données facturées	32078
+    Données gratuites	0
+
+    Nombre de données manquantes
+    (car la donnée est absente) 	66
+    Nombre de données non disponibles
+    (car le paramètre n'est pas mesuré par la station) 	0
+    Nombre de données non fournies
+    (car de qualité insuffisante) 	0
+
+    ------------------------------------------------------------------------
+
+  * Description détaillée
+
+    Seules sont listés dans le tableau suivant, les stations et les
+    paramètres pour lesquelles des manques apparaissent.
+    Se reporter au descriptif des postes pour connaître les paramètres
+    mesurés par un poste.
+
+    Dans l'ordre : nb de données commandées, fournies, manquantes, non
+    mesurées, et filtrées.
+    Numéro 	Nom 	Détail de la fourniture
+    13054001 	MARIGNANE 	
+    DRR 	4018 	3958 	60 	0 	0
+    DXY 	4018 	4013 	5 	0 	0
+    UM 	4018 	4017 	1 	0 	0
+
+    ------------------------------------------------------------------------
+
+  * Attention
+
+    Toutes les stations météorologiques ne mesurent pas les mêmes
+    paramètres météorologiques aux mêmes pas de temps.
+    Se reporter au descriptif des postes pour connaître les paramètres
+    mesurés par un poste.
+    Les heures associées à certaines données (données horaires, heures
+    associées aux valeurs extrêmes) correspondent aux heures du fuseau
+    de référence :
+
+      * Stations métropolitaines : heures UTC (Coordinated Universal Time).
+      * Stations d'outre-mer : heures locales
+
+    ------------------------------------------------------------------------
+
+  * Références géographiques
+
+    Numéro 	Nom 	Coordonnées 	Lambert II étendu 	Altitude 	Producteurs
+    13054001 	MARIGNANE 	
+    Latitude	43°26'15"N
+    Longitude	5°12'57"E
+
+    	
+    Lambert Y (m)	1830442
+    Lambert X (m)	833431
+
+    	9 mètres 	
+    De 2008 a 2018	METEO-FRANCE
+
+
+    ------------------------------------------------------------------------
+
+  * Référence temporelle
+
+    Période	Du 1er janvier 2008 au 31 décembre 2018
+
+    ------------------------------------------------------------------------
+
+  * Paramètres
+
+    Mnémonique	Libellé	Unité	Pas de temps
+    RR	HAUTEUR DE PRECIPITATIONS QUOTIDIENNE	MILLIMETRES ET 1/10	quotidien
+    DRR	DUREE DES PRECIPITATIONS QUOTIDIENNES	MINUTES	quotidien
+    TN	TEMPERATURE MINIMALE SOUS ABRI QUOTIDIENNE	DEG C ET 1/10	quotidien
+    TX	TEMPERATURE MAXIMALE SOUS ABRI QUOTIDIENNE	DEG C ET 1/10	quotidien
+    TM	TEMPERATURE MOYENNE SOUS ABRI QUOTIDIENNE	DEG C ET 1/10	quotidien
+    FFM	MOYENNE DES VITESSES DU VENT A 10M QUOTIDIENNE	M/S ET 1/10	quotidien
+    DXY	DIRECTION VENT QUOTIDIEN MAXI MOYENNE SUR 10 MIN 	ROSE DE 360
+    quotidien
+    UM	HUMIDITE RELATIVE MOYENNE	%	quotidien
+
+------------------------------------------------------------------------
+

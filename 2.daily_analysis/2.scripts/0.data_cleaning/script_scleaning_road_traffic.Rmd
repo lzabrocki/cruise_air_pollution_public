@@ -1,0 +1,191 @@
+---
+title: "Data Wrangling"
+description: |
+  Maritime Traffic, Air Pollution and Short-Term Health: Evidence from a Large Port City.
+author:
+  - name: Marie-Abèle Bind 
+    url: https://scholar.harvard.edu/marie-abele
+    affiliation: Harvard University
+    affiliation_url: https://statistics.fas.harvard.edu/people/marie-abale-bind
+  - name: Marion Leroutier 
+    url: https://www.parisschoolofeconomics.eu/en/leroutier-marion/work-in-progress/
+    affiliation: Paris School of Economics
+    affiliation_url: https://www.parisschoolofeconomics.eu/en/
+  - name: Léo Zabrocki 
+    url: https://www.parisschoolofeconomics.eu/en/
+    affiliation: Paris School of Economics
+    affiliation_url: https://www.parisschoolofeconomics.eu/en/
+date: "`r Sys.Date()`"
+output: 
+    distill::distill_article:
+      toc: true
+      toc_depth: 2
+---
+
+<style>
+body {
+text-align: justify}
+</style>
+
+
+In this document, we took greate care providing all steps and R codes required to build the data we use for our daily level analysis. **Should you have any questions or find errors, please do not hesitate to contact us at leo.zabrocki@gmail.com.**
+
+
+
+# Required Packages
+
+To reproduce exactly the `script_data_wrangling.html` document, you first need to have installed:
+
+* the [R](https://www.r-project.org/) programming language on your computer 
+* [RStudio](https://rstudio.com/), an integrated development environment for R, which will allow you to knit the `script_data_wrangling.Rmd` file and interact with the R code chunks
+* the [R Markdown](https://rmarkdown.rstudio.com/) package
+* and the [Distill](https://rstudio.github.io/distill/) package which provides the template of this document. 
+
+Once everything is set up, we need to load the following packages:
+
+```{r, echo = TRUE, message = FALSE, warning = FALSE}
+# load required packages
+library(rmarkdown) # for creating the R Markdown document
+library(knitr) # for creating the R Markdown document
+library(here) # for files paths organization
+library(tidyverse) # for data manipulation and visualization
+library(data.table) # for loading heavy data
+library(lubridate) # for manipulating date variables
+library(missRanger) # for missing values imputation
+library(kableExtra) # for table formatting
+library(Cairo) # for printing custom police of graphs
+```
+
+We also load our custom `ggplot2` theme for graphs:
+
+```{r, echo = TRUE, message = FALSE, warning = FALSE}
+# load ggplot custom theme
+source(here::here("2.scripts", "5.custom_ggplot2_theme", "script_custom_ggplot_theme.R"))
+````
+
+The theme is based on the fantastic [hrbrthemes](https://hrbrmstr.github.io/hrbrthemes/index.html) package. If you do not want to use this theme or are unable to install it because of fonts issues (as it often happens under Windows), you can use the `theme_mimimal()` included in the `ggplot2` package.
+
+
+# Road traffic data (2011-2016 period)
+We import the road traffic data at the daily level, giving the average hourly traffic at several monitoring stations of Marseille highways. T
+
+The data contains traffic values at 16 road traffic counting stations of Marseille, estimated to have relatively clean values among the set of all counting stations in Marseille (about 150). 
+- 7 of them are the most reliable (indexed by "_1_")
+- 9 of them are less clean and have more missing values (indexed "_0_")
+
+The reason to have kept the less clean ones is because they are located on two highways for which it may be interesting to have information: the A55 that goes along the sea, and the L2 tunnel that crosses Marseille. 
+
+Among the 7 clean stations, there is one counting traffic at a highway ramp (n°m8a) that we may want to drop because cars on the highway ramp may have a different traffic flow from on the highway. Apart from the highway ramp station located on the A7, the 6 others are located as follows:
+
+- 4 stations on the A50, a West-East highway coming from the East of Marseille with 2 measuring the flow to Marseille ("dir1" in the name: M3l, M3y) and 2 the flow from Marseille ("dir0" in the name: M3M, M3Y)
+- 2 stations on the A7, a North-South highway coming from the North of Marseille, with 1 measuring the flow to Marseille (M8A), and 1 the flow from Marseille (M8a)
+
+The data contains 3 variables for traffic, for each station:  The "mean_traffic_all" is the sum of the mean hourly flows of all the vehicle types. The "mean_traffic_cars contains data only for the mean hourly flow of cars and the "mean_traffic_trucks" only for trucks.
+
+```{r, echo=TRUE, warning=FALSE}
+road_traffic_data <-read.csv(here::here("1.data", "1.raw_data", "6.road_traffic_data","donnees_hourlytrafic_marseille_day.csv"), header = TRUE, sep=",", stringsAsFactors = FALSE, dec = ".")
+````
+
+We clean the date variable
+
+
+```{r, echo=TRUE, warning=FALSE}
+# Create date variable
+road_traffic_data <-road_traffic_data %>%
+  mutate(date=as.Date(paste(year, month, day, sep='-'))) 
+
+road_traffic_data <-road_traffic_data %>%
+  mutate(date=lubridate::ymd(date))
+
+````
+
+We keep remove the variable for "cars" and just keep the one for "all" and the one for "trucks"
+
+```{r, echo=TRUE, warning=FALSE}
+
+# Remove cars specific indicators
+road_traffic_data <-road_traffic_data %>%
+    select(-contains("cars")) 
+````
+
+We keep only the stations located along a road and not at crossroads
+
+```{r, echo=TRUE, warning=FALSE}
+
+# Remove station m8a => bretelle de changement
+road_traffic_data <-road_traffic_data %>%
+    select(-c(mean_traffic_allm8a_1_dir0,
+             mean_traffic_trucksm8a_1_dir0,
+             occupancy_ratem8a_1_dir0,
+             mean_speed_trucksm8a_1_dir0,
+             mean_speed_allm8a_1_dir0))
+
+````
+
+We keep only the stations which traffic values are the cleanest (indicated by a "_1_" following the station id, rather than a "_0_")
+
+```{r, echo=TRUE, warning=FALSE}
+
+# Keep all the stations that are more sure: the "_1_" ones
+road_traffic_data <-road_traffic_data %>%
+    select(-contains("_0_"))
+
+# remove day, month and year variables
+road_traffic_data <-road_traffic_data %>%
+    select(-(day),-(month),-(year))
+
+````
+
+
+We average the 5 variables of traffic flow, traffic speed and occupancy rate across the six remaining stations:
+
+```{r, echo=TRUE, warning=FALSE}
+# Mean total traffic flow
+select_rowmean_vars <-c("mean_traffic_allM3l_1_dir1","mean_traffic_allM3y_1_dir1","mean_traffic_allM8A_1_dir1","mean_traffic_allM8a_1_dir0","mean_traffic_allM3M_1_dir0","mean_traffic_allM3Y_1_dir0")
+
+road_traffic_data <-road_traffic_data %>%
+     mutate(road_traffic_flow_all=rowMeans(select(., select_rowmean_vars), na.rm = TRUE))
+          
+# Mean traffic flow of trucks 
+select_rowmeantrucks_vars <-c("mean_traffic_trucksM3l_1_dir1","mean_traffic_trucksM3y_1_dir1","mean_traffic_trucksM8A_1_dir1","mean_traffic_trucksM8a_1_dir0","mean_traffic_trucksM3M_1_dir0","mean_traffic_trucksM3Y_1_dir0")
+
+road_traffic_data <-road_traffic_data %>%
+     mutate(road_traffic_flow_trucks=rowMeans(select(., all_of(select_rowmeantrucks_vars)), na.rm = TRUE))
+
+# Mean speed total 
+select_rowmeanspeed_vars <-c("mean_speed_allM3l_1_dir1","mean_speed_allM3y_1_dir1","mean_speed_allM8A_1_dir1","mean_speed_allM8a_1_dir0","mean_speed_allM3M_1_dir0","mean_speed_allM3Y_1_dir0")
+
+road_traffic_data <-road_traffic_data %>%
+     mutate(road_traffic_speed_all=rowMeans(select(., all_of(select_rowmeanspeed_vars)), na.rm = TRUE))
+  
+
+# Mean speed of trucks 
+select_rowmeanspeedtrucks_vars <-c("mean_speed_trucksM3l_1_dir1","mean_speed_trucksM3y_1_dir1","mean_speed_trucksM8A_1_dir1","mean_speed_trucksM8a_1_dir0","mean_speed_trucksM3M_1_dir0","mean_speed_trucksM3Y_1_dir0")
+
+road_traffic_data <-road_traffic_data %>%
+     mutate(road_traffic_speed_trucks=rowMeans(select(.,all_of(select_rowmeanspeedtrucks_vars)), na.rm = TRUE))
+              
+# Mean occupancy rate
+
+select_rowmeansoccupancy_vars<-c("occupancy_rateM3l_1_dir1","occupancy_rateM3y_1_dir1","occupancy_rateM8A_1_dir1","occupancy_rateM8a_1_dir0","occupancy_rateM3M_1_dir0","occupancy_rateM3Y_1_dir0")
+
+road_traffic_data <-road_traffic_data %>%
+     mutate(road_occupancy_rate=rowMeans(select(., all_of(select_rowmeansoccupancy_vars)), na.rm = TRUE))
+  
+````
+
+
+We keep only the date variable and mean traffic flow, speed and occupancy rate for all and for trucks, and save the data
+
+```{r, echo=TRUE, warning=FALSE}
+# remove single station data and keep only averages
+road_traffic_data <-road_traffic_data %>%
+    select(-contains("dir"))
+
+# save the data
+saveRDS(road_traffic_data, here::here("1.data", "1.raw_data", "6.road_traffic_data", "daily_road_traffic_2011_2016_flow_speed_occupancy.RDS"))
+  
+````
+
+
+

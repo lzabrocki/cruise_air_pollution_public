@@ -1,0 +1,135 @@
+---
+title: "Figures for the Article"
+description: |
+  Detailed Script.
+author:
+  - name: Marie-Abèle Bind 
+    url: https://scholar.harvard.edu/marie-abele
+    affiliation: Harvard University
+    affiliation_url: https://statistics.fas.harvard.edu/people/marie-abale-bind
+  - name: Marion Leroutier 
+    url: https://www.parisschoolofeconomics.eu/en/leroutier-marion/work-in-progress/
+    affiliation: Paris School of Economics
+    affiliation_url: https://www.parisschoolofeconomics.eu/en/
+  - name: Léo Zabrocki 
+    url: https://www.parisschoolofeconomics.eu/en/
+    affiliation: Paris School of Economics
+    affiliation_url: https://www.parisschoolofeconomics.eu/en/
+date: "`r Sys.Date()`"
+output: 
+    distill::distill_article:
+      toc: true
+      toc_depth: 3
+---
+
+<style>
+body {
+text-align: justify}
+</style>
+
+In this document, we provide all steps and R codes required to reproduce the figure displayed in the main article for the daily analysis.
+
+**Should you have any questions, need help to reproduce the analysis or find coding errors, please do not hesitate to contact us at leo.zabrocki@psemail.eu and marion.leroutier@psemail.eu.**
+
+# Required Packages
+
+To reproduce exactly the `script_figures_paper.html` document, we first need to have installed:
+
+* the [R](https://www.r-project.org/) programming language 
+* [RStudio](https://rstudio.com/), an integrated development environment for R, which will allow you to knit the `5_script_checking_balance_figures.Rmd` file and interact with the R code chunks
+* the [R Markdown](https://rmarkdown.rstudio.com/) package
+* and the [Distill](https://rstudio.github.io/distill/) package which provides the template for this document. 
+
+Once everything is set up, we have to load the following packages:
+
+```{r, echo = TRUE, message = FALSE, warning = FALSE}
+# load required packages
+library(knitr) # for creating the R Markdown document
+library(here) # for files paths organization
+library(tidyverse) # for data manipulation and visualization
+library(Cairo) # for printing customed police of graphs
+```
+
+We finally load our customed `ggplot2` theme for graphs:
+
+```{r, echo = TRUE, message = FALSE, warning = FALSE}
+# load ggplot customed theme
+source(here::here("2.scripts", "5.custom_ggplot2_theme", "script_custom_ggplot_theme.R"))
+````
+
+The theme is based on the fantastic [hrbrthemes](https://hrbrmstr.github.io/hrbrthemes/index.html) package. If you do not want to use this theme or are unable to install it because of fonts issues, you can use the `theme_bw()` already included in the `ggplot2` package.
+
+# Preparing the Data
+
+We load the data on 95% Fisherian intervals:
+
+```{R, echo = TRUE}
+# load fisherian intervals data
+data <-
+  readRDS(
+    here::here(
+      "1.data",
+      "2.data_for_analysis",
+      "6.submission_natcomms",
+      "ri_data_fisherian_intervals.rds"
+    )
+  )
+```
+
+
+For clarity, we only display in the main paper the results for NO$_{2}$, SO$_{2}$, PM$_{10}$ and PM$_{2.5}$ over the -1 to +1 days period.
+
+```{R, echo = TRUE}
+data <- data %>%
+  filter(!str_detect(pollutant, "O3"))
+```
+
+
+# Graph of 95% Fisherian Intervals
+
+We plot below the results of our randomization inference to compute 95% Fisherian intervals:
+
+```{R, echo=TRUE, layout="l-body-outset", fig.width=20, fig.height=10, warning = FALSE, dev = "CairoPNG"}
+data <- data %>%
+  mutate(pollutant = ifelse(str_detect(pollutant, "SO2"), "SO2 Longchamp", pollutant)) %>%
+  arrange(pollutant, time) %>%
+  mutate(stripe = ifelse((time %% 2) == 0, "Grey", "White")) %>%
+  ungroup()
+
+
+
+
+
+
+# make the graph
+graph_fi <- ggplot(data, aes(x = as.factor(time), y = observed_mean_difference, ymin = lower_fi,
+                        ymax = upper_fi)) +
+  geom_rect(aes(fill = stripe), xmin = as.numeric(as.factor(data$time))-0.42,
+            xmax = as.numeric(as.factor(data$time))+0.42, ymin = -Inf, ymax=Inf, color = NA, alpha = 0.4) +
+          scale_fill_manual(values = c('gray96', NA)) +
+  geom_hline(yintercept = 0, color="black") +
+  geom_vline(xintercept = c(1.6), color = "black") +
+  geom_pointrange(aes(x = as.factor(time), y = observed_mean_difference, ymin = lower_fi ,
+                      ymax = upper_fi), colour="deepskyblue3", lwd = 1.2) +
+  facet_wrap(~ factor(
+    pollutant,
+    levels = c(
+      "NO2 Saint-Louis",
+      "NO2 Longchamp",
+      "SO2 Longchamp",
+      "PM10 Saint-Louis",
+      "PM10 Longchamp",
+      "PM2.5 Longchamp")
+    )) +
+  labs(colour = "Vessel Traffic:") +
+  ylab("Constant-Additive Increase \nin Concentrations (µg/m³)") + xlab("Day") +
+  custom_theme +
+  guides(fill = FALSE) +
+  theme(legend.position = "top", legend.justification = "left", legend.direction = "horizontal")
+
+# print the graph
+graph_fi
+
+# save the graph
+ggsave(graph_fi, filename = here::here("3.outputs", "1.figures", "3.figures_paper", "graph_fisherian_intervals_article.pdf"), width = 40, height = 20, units = "cm", device = cairo_pdf)
+```

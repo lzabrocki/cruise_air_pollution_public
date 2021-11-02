@@ -1,0 +1,243 @@
+---
+title: "Map of Marseille Context"
+description: |
+  Script for reproducing the map.
+author:
+  - name: Marie-Abèle Bind 
+    url: https://scholar.harvard.edu/marie-abele
+    affiliation: Biostatistics Center, Massachusetts General Hospital
+    affiliation_url: https://biostatistics.massgeneral.org/faculty/marie-abele-bind-phd/
+  - name: Marion Leroutier 
+    url: https://www.parisschoolofeconomics.eu/en/leroutier-marion/work-in-progress/
+    affiliation: Misum, Stockholm School of Economics
+    affiliation_url: https://www.hhs.se/en/persons/l/leroutier-marion/
+  - name: Léo Zabrocki 
+    url: https://lzabrocki.github.io/
+    affiliation: Paris School of Economics
+    affiliation_url: https://www.parisschoolofeconomics.eu/fr/zabrocki-leo/
+date: "`r Sys.Date()`"
+output: 
+    distill::distill_article:
+      keep_md: true
+      toc: true
+      toc_depth: 2
+---
+
+<style>
+body {
+text-align: justify}
+</style>
+
+In this document, we provide all steps and R codes required to reproduce the figures of Fisherian intervals displayed in the main article. **Should you have any questions, need help to reproduce the analysis or find coding errors, please do not hesitate to contact us at leo.zabrocki@psemail.eu and marion.leroutier@psemail.eu.**
+
+# Required Packages
+
+To reproduce exactly the `script_figures_paper.html` document, we first need to have installed:
+
+* the [R](https://www.r-project.org/) programming language 
+* [RStudio](https://rstudio.com/), an integrated development environment for R, which will allow you to knit the `5_script_checking_balance_figures.Rmd` file and interact with the R code chunks
+* the [R Markdown](https://rmarkdown.rstudio.com/) package
+* and the [Distill](https://rstudio.github.io/distill/) package which provides the template for this document. 
+
+Once everything is set up, we have to load the following packages:
+
+```{r, echo = TRUE, message = FALSE, warning = FALSE}
+# load required packages
+library(knitr) # for creating the R Markdown document
+library(here) # for files paths organization
+library(tidyverse) # for data manipulation and visualization
+library(osmdata) # for retrieving open street map data
+library(sf) # for simple features access
+library(Cairo) # for printing customed police of graphs
+```
+
+We finally load our customed `ggplot2` theme for graphs:
+
+```{r, echo = TRUE, message = FALSE, warning = FALSE}
+# load ggplot customed theme
+source(here::here("2.scripts", "4.custom_ggplot2_theme", "script_custom_ggplot_theme_small_wrap.R"))
+````
+
+The theme is based on the fantastic [hrbrthemes](https://hrbrmstr.github.io/hrbrthemes/index.html) package. If you do not want to use this theme or are unable to install it because of fonts issues, you can use the `theme_bw()` already included in the `ggplot2` package.
+
+# Gathering the data
+
+### City's boundaries
+
+We downloaded from [data.gouv.fr](https://www.data.gouv.fr/fr/datasets/quartiers-de-marseille-1/#) a shape file of Marseille's districts. We load these data and compute the union of the districts to have the boundaries of the city:
+
+```{R, echo = TRUE}
+# load the city's boundaries
+marseille_borders <- st_read(here::here("1.data", "1.raw_data", "6.marseille_map_data", "districts_marseille.shp")) %>%
+  st_union()
+````
+
+### Port's boundaries
+
+Using the `osmdata` package, we retrieve the boundaries of Marseille's port:
+
+```{R, echo = TRUE}
+# building the query to get boundaries of the port
+harbour_query <- getbb("Marseille") %>%
+  opq() %>%
+  add_osm_feature("harbour")
+
+# retrieve the data
+harbour_data <- osmdata_sf(harbour_query)
+````
+
+### Roads data
+
+Using the `osmdata` package, we retrieve Marseille's network of roads. This query takes a bit of time to run:
+
+```{R, echo = TRUE}
+# building the query to get roads data
+roads_query <- getbb("Marseille") %>%
+  opq() %>%
+  add_osm_feature("highway")
+
+# retrieve the data
+roads_data <- osmdata_sf(roads_query)
+````
+
+### Air pollution measuring stations data
+
+We retrieve the coordinates of Longchamp and Saint Louis stations from [AtmoSud](https://www.atmosud.org/) website:
+
+```{R, echo = TRUE}
+# create air pollution measuring stations data
+data_stations <- tibble(latitude = c(43.34811,  43.30610), longitude = c(5.36012, 5.39526), name = c("Saint Louis", "Longchamp"))
+
+# set the crs
+data_stations <- st_as_sf(
+  data_stations, 
+  coords = c('longitude', 'latitude'),
+  crs = "+init=epsg:4326"
+)
+
+# retrieve station coordinates for labelling their names on the map
+stations_coordinates <- as.data.frame(st_transform(data_stations, 2154) %>%
+                                 st_coordinates(.))
+stations_coordinates$name <- data_stations$name
+````
+
+# Making the map
+
+```{R, echo=TRUE, layout="l-body-outset", fig.width=20, fig.height=20, warning = FALSE, dev = "CairoPNG"}
+# we first store a vector of colors to create the legend
+colors <- c("Harbour" = "coral", "Stations" = "deepskyblue3")
+
+# make the map
+map_marseille <- ggplot() +
+  # city's boundaries
+  geom_sf(
+    data = marseille_borders,
+    colour = "black",
+    fill = "white",
+    size = 0.8
+  ) +
+  # roads
+  geom_sf(data = roads_data$osm_lines,
+          colour = "gray80",
+          size = 0.2) +
+  # station coordinates
+  geom_sf(
+    data = data_stations,
+    aes(colour = "Stations"),
+    shape = 3,
+    stroke = 2.5,
+    size = 8
+  ) +
+  # port's boundaries
+  geom_sf(data = harbour_data$osm_lines,
+          aes(colour = "Harbour"),
+          size = 1) +
+  geom_sf(
+    data = harbour_data$osm_polygons,
+    aes(colour = "Harbour"),
+    fill = NA,
+    size = 0.8
+  ) +
+  # station labels
+  ggrepel::geom_text_repel(
+    data = stations_coordinates,
+    aes(X, Y, label = name),
+    point.padding = 1.8,
+    segment.color = NA,
+    size = 12,
+    fontface = 'bold'
+  ) +
+  # axes labels
+  xlab('Longitude') + ylab('Latitude') +
+  # add scale
+  ggspatial::annotation_scale(
+    location = "br",
+    line_width = 0.5,
+    height = unit(0.2, "cm")
+  ) +
+  # add north arrow
+  ggspatial::annotation_north_arrow(
+    location = "tr",
+    which_north = "true",
+    height = unit(1, "cm"),
+    width = unit(1, "cm")
+  ) +
+  # zoom on the map
+  coord_sf(
+    crs = st_crs(2154),
+    xlim = c(885000, 898500),
+    ylim = c(6245000, 6254000),
+    expand = FALSE
+  ) +
+  scale_color_manual(name = "Legend:", values = colors) +
+  custom_theme +
+  # theme options
+  theme(
+    panel.border = element_rect(color = "black", fill = NA, size = 0.8),
+    panel.background = element_rect(fill = "aliceblue"),
+    panel.grid.major = element_blank(),
+    # axis titles parameters
+    axis.title.x = element_text(
+      size = 36,
+      face = "bold",
+      margin = margin(
+        t = 20,
+        r = 0,
+        b = 0,
+        l = 0
+      )
+    ),
+    axis.title.y = element_text(
+      size = 36,
+      face = "bold",
+      margin = margin(
+        t = 0,
+        r = 20,
+        b = 0,
+        l = 0
+      )
+    ),
+    # axis texts
+    axis.text.x = element_text(size = 20),
+    axis.text.y = element_text(size = 20),
+    # facet texts
+    strip.text.x = element_text(size = 36, face = "bold"),
+    strip.text.y = element_text(size = 36, face = "bold"),
+    # legend parameters
+    legend.position = "top",
+    legend.justification = "left",
+    legend.direction = "horizontal",
+    legend.title = element_text(size = 36, face = "bold"),
+    legend.text = element_text(size = 28)
+  )
+
+# save the map
+ggsave(
+  map_marseille,
+  filename = here::here("3.outputs", "1.figures", "1.eda", "map_marseille.pdf"),
+  width = 40,
+  height = 28,
+  units = "cm",
+  device = cairo_pdf
+)
+````

@@ -1,0 +1,145 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html><head><meta http-equiv="content-type" content="text/html; charset=iso-8859-1">
+<title>Donn&eacute;es&nbsp;horaires</title>
+<style type="text/css"> <!--    .montrer { display: block; }    .cacher { display: none; }   body { background-color: rgb(250, 250, 255); color: rgb(51, 0, 153); font-family: Helvetica,Arial,sans-serif;}   p.rubrique { font-weight: 700; color: rgb(51, 51, 153); font-style: italic; font-size: 90%;}   p.note { font-style: italic; font-weight: bolder;color: rgb(240, 90, 90);  margin-right: 10%; margin-left: 10%; font-size: 95%;}   table.titre { width: 60%; height: 100px; text-align: center; background-color: rgb(178, 209, 255); margin-left: auto; margin-right: auto;}   .fac { text-align: right; width: 50%; background-color: rgb(255, 255, 255); font-weight: 600; font-size: 95%; color: rgb(51, 0, 153); vertical-align: top;}    .detailfac { width: 100%; text-align: left; font-size: 80%; font-style: italic; font-weight: normal; color: rgb(51, 0, 153); }    .detailstation { text-align: left; width: 50%; color: rgb(51, 0, 153); font-size: 85%;}    .detailparam { font-size:85%; text-align: left; width: 100%; color: rgb(51, 0, 153); }    table.liste { font-size: 85% }   th { background-color: rgb(250, 235, 215);}   td.gras { font-weight: 600;}   hr { width: 66%; color: rgb(51, 51, 153); }   a:link    {color:rgb(51, 51, 153)}   a:visited {color:rgb(51, 51, 153)}   a:active  {color:rgb(51, 102, 255)}   a:hover   {color:rgb(51, 102, 255)}   li.rubrique { list-style-type: disc; font-weight: bold; color: rgb(51, 0, 153);}   div#popBox { position: absolute; background-color: rgb(51, 0, 153); color: rgb(250, 250, 250); font-family: arial, 'sans serif'; font-size: 90%;}--> </style>
+<script type="text/javascript">function mouseMove (evt) { var x = 0; var y = 0; var plusX = 0; var plusY = 0; if (document.layers) {  x = evt.x;  y = evt.y;  plusX = window.pageXOffset;  plusY = window.pageYOffset; } else    if (document.all) {  x = event.clientX;  y = event.clientY;  plusX = document.documentElement.scrollLeft;  plusY = document.documentElement.scrollTop; } else if (document.getElementById) {  x = evt.clientX;  y = evt.clientY;  plusX = window.pageXOffset;  plusY = window.pageYOffset; } document.getElementById("popBox").style.left = (x+plusX+15)+"px"; document.getElementById("popBox").style.top = (y+plusY+5)+"px";} if (document.layers) document.captureEvents(Event.MOUSEMOVE); if (document.layers || document.all) document.onmousemove = mouseMove; if (document.addEventListener) document.addEventListener('mousemove', mouseMove, true);if (document.attachEvent) document.attachEvent("onmousemove", mouseMove);function montre(s) { var elt = document.getElementById('popBox'); elt.style.display = "block"; elt.innerHTML = s;}function cache() { var elt = document.getElementById('popBox'); elt.style.display = "none";}function inverseAffichage(tag, idsh, idhd) {var i,x,tB,j=0,tA=new Array();if (document.getElementsByTagName){ tB=document.getElementsByTagName(tag); for(x=0;x<tB.length;x++) {  tA[j]=tB[x];  j++; } for(i=0;i<tA.length;i++) {  if(tA[i].className) {    if(tA[i].id==idsh) tA[i].className='montrer';   if(tA[i].id==idhd) tA[i].className='cacher';  } }}}</script>
+</head><body>
+<img src="data:image/jpeg;base64,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" alt="logo"><br>
+<div id="popBox"></div><a name="hautDePage"></a><div style="text-align: center;">
+<table class='titre' border="0">	<tbody>		<tr>			<td style="vertical-align: middle;"><h1><small><i>Notes du produit</i></small><br>Données horaires</h1></td>		</tr>	</tbody></table>
+   <blockquote>   <hr/>   <p class="note">N.B.: La vente, redistribution ou rediffusion des informations re&ccedil;ues, en l'&eacute;tat ou sous forme de produits d&eacute;riv&eacute;s, est   strictement interdite sans l'accord de METEO-FRANCE</p>   <hr/>   </blockquote>
+</div>
+   <ul><li class="rubrique">Description générale de la fourniture</li></ul>
+   <blockquote>
+       <table class="fac" border="1" cellpadding="3" cellspacing="3">
+       <tbody>
+       <tr class="fac"><td>Nombre de données commandées</td><td style="text-align: right;">578592</td></tr>
+       <tr class="fac">
+           <td>Nombre de données fournies</td>
+           <td style="text-align: right;">578269<br>
+               <table class="detailfac" border="0" cellpadding="2" cellspacing="2">
+               <tbody>
+               <tr class="detailfac"><td>Données facturées</td><td style="text-align: right;">578269</td></tr>
+               <tr class="detailfac"><td>Données gratuites</td><td style="text-align: right;">0</td></tr>
+               </tbody>
+               </table>
+           </td>
+       </tr>
+       <tr class="fac"><td>Nombre de données manquantes<br>
+           <span style="font-style: italic; font-size:60%; font-weight: normal">(car la donnée est absente)</span></td>
+           <td style="text-align: right;">323</td>
+       </tr>
+       <tr class="fac">
+           <td>Nombre de données non disponibles<br>
+           <span style="font-style: italic; font-size:60%; font-weight: normal">(car le paramètre n'est pas mesuré par la station)</span>
+           </td>
+           <td style="text-align: right;">0</td>
+       </tr>
+       </tbody>
+       </table>
+   <hr/>
+   </blockquote>
+<ul><li class="rubrique">Description détaillée</li></ul>
+<blockquote>
+<span style="font-style: italic; color: rgb(51, 0, 153); font-size:90%;">
+Seules sont listés dans le tableau suivant, les stations et les paramètres pour lesquelles des manques apparaissent.<br>
+Se reporter au descriptif des postes pour conna&icirc;tre les paramètres mesurés par un poste.
+</span><br><br>
+<span style="font-style: italic; color: rgb(51, 0, 153); font-size:75%;">
+Dans l'ordre : nb de données commandées, fournies, manquantes, non mesurées, et filtrées.<br>
+Une info bulle est affichée en pointant la souris sur le nombre.
+</span> 
+<div id="detail_show" class="montrer"><div style="cursor: pointer;" onclick="inverseAffichage('div','detail_hide','detail_show')"><p class="rubrique">+ <u>Afficher les informations</u></p></div></div>
+<div id="detail_hide" class="cacher">
+<div style="cursor: pointer;" onclick="inverseAffichage('div','detail_show','detail_hide')"><p class="rubrique">- <u>Masquer les informations</u></p></div>
+<table class="detailstation" border="2" cellpadding="2" cellspacing="2">
+<tbody>
+<tr class="detailstation" >
+<th>Numéro</th>
+<th>Nom</th>
+<th>Détail de la fourniture</th>
+</tr>
+<tr class="detailstation">
+<td>13054001</td>
+<td>MARIGNANE</td>
+<td><table class="detailparam" border="0" cellpadding="2" cellspacing="2"><tbody>
+<tr style="background-color: rgb(255, 255, 204);">
+<td><div style="cursor: pointer;" onMouseOver="montre('<b><i><small>HUMIDITE RELATIVE HORAIRE</small></i></b>')" onMouseOut="cache()">U</div></td>
+<td><div style="cursor: pointer;" onMouseOver="montre('<b><i><small>Nombre de données commandées</small></i></b>')" onMouseOut="cache()">96432</div></td>
+<td><div style="cursor: pointer;" onMouseOver="montre('<b><i><small>Nombre de données fournies</small></i></b>')" onMouseOut="cache()">96415</div></td>
+<td><div style="cursor: pointer;" onMouseOver="montre('<b><i><small>Nombre de données manquantes</small></i></b>')" onMouseOut="cache()">17</div></td>
+<td><div style="cursor: pointer;" onMouseOver="montre('<b><i><small>Nombre de données non mesurées</small></i></b>')" onMouseOut="cache()">0</div></td>
+<td><div style="cursor: pointer;" onMouseOver="montre('<b><i><small>Nombre de données filtrées</small></i></b>')" onMouseOut="cache()">0</div></td>
+</tr>
+<tr style="background-color: rgb(255, 255, 204);">
+<td><div style="cursor: pointer;" onMouseOver="montre('<b><i><small>DUREE DES PRECIPITATIONS HORAIRE</small></i></b>')" onMouseOut="cache()">DRR1</div></td>
+<td><div style="cursor: pointer;" onMouseOver="montre('<b><i><small>Nombre de données commandées</small></i></b>')" onMouseOut="cache()">96432</div></td>
+<td><div style="cursor: pointer;" onMouseOver="montre('<b><i><small>Nombre de données fournies</small></i></b>')" onMouseOut="cache()">96133</div></td>
+<td><div style="cursor: pointer;" onMouseOver="montre('<b><i><small>Nombre de données manquantes</small></i></b>')" onMouseOut="cache()">299</div></td>
+<td><div style="cursor: pointer;" onMouseOver="montre('<b><i><small>Nombre de données non mesurées</small></i></b>')" onMouseOut="cache()">0</div></td>
+<td><div style="cursor: pointer;" onMouseOver="montre('<b><i><small>Nombre de données filtrées</small></i></b>')" onMouseOut="cache()">0</div></td>
+</tr>
+<tr style="background-color: rgb(255, 255, 204);">
+<td><div style="cursor: pointer;" onMouseOver="montre('<b><i><small>HAUTEUR DE PRECIPITATIONS HORAIRE</small></i></b>')" onMouseOut="cache()">RR1</div></td>
+<td><div style="cursor: pointer;" onMouseOver="montre('<b><i><small>Nombre de données commandées</small></i></b>')" onMouseOut="cache()">96432</div></td>
+<td><div style="cursor: pointer;" onMouseOver="montre('<b><i><small>Nombre de données fournies</small></i></b>')" onMouseOut="cache()">96425</div></td>
+<td><div style="cursor: pointer;" onMouseOver="montre('<b><i><small>Nombre de données manquantes</small></i></b>')" onMouseOut="cache()">7</div></td>
+<td><div style="cursor: pointer;" onMouseOver="montre('<b><i><small>Nombre de données non mesurées</small></i></b>')" onMouseOut="cache()">0</div></td>
+<td><div style="cursor: pointer;" onMouseOver="montre('<b><i><small>Nombre de données filtrées</small></i></b>')" onMouseOut="cache()">0</div></td>
+</tr>
+</tbody></table>
+</td></tr>
+</tbody>
+</table>
+</div>
+<hr>
+</blockquote>
+  <ul><li class="rubrique">Attention</li></ul>   <blockquote>   <span style="font-size: 85%;">       Toutes les stations m&eacute;t&eacute;orologiques ne mesurent pas les m&ecirc;mes param&egrave;tres m&eacute;t&eacute;orologiques        aux m&ecirc;mes pas de temps.<br>       Se reporter au descriptif des postes pour conna&icirc;tre les param&egrave;tres mesur&eacute;s par un poste.   </span><br><span style="font-size: 85%;">       Les heures associ&eacute;es &agrave; certaines donn&eacute;es (donn&eacute;es horaires,        heures associ&eacute;es aux valeurs extr&ecirc;mes) correspondent aux heures du fuseau de r&eacute;f&eacute;rence :<br>       <ul><li>Stations m&eacute;tropolitaines : heures UTC (Coordinated Universal Time).</li>           <li>Stations d'outre-mer     : heures locales</li></ul></span><hr/>   </blockquote>
+<ul><li class="rubrique">R&eacute;f&eacute;rences g&eacute;ographiques</li></ul>
+<blockquote>
+<table class="liste" border="1" cellpadding="2" cellspacing="2" width="100%">
+<tbody>
+<tr valign="top" bgcolor="rgb(0, 153, 153)">
+<th>Num&eacute;ro</th>
+<th>Nom</th>
+<th>Coordonn&eacute;es</th>
+<th>Lambert II &eacute;tendu</th>
+<th>Altitude</th>
+<th>Producteurs</th>
+</tr>
+<tr><td>13054001</td>
+<td>MARIGNANE</td>
+<td><table style="width: 100%; font-size:80%" border="0" cellpadding="2" cellspacing="2"><tbody>
+<tr><td>Latitude</td><td>43°26'15"N</td></tr>
+<tr><td>Longitude</td><td>5°12'57"E</td></tr>
+</tbody></table></td>
+<td><table style="width: 100%; font-size:80%" border="0" cellpadding="2" cellspacing="2"><tbody>
+<tr><td>Lambert Y (m)</td><td>1830442</td></tr>
+<tr><td>Lambert X (m)</td><td>833431</td></tr>
+</tbody></table></td>
+<td>9 mètres</td>
+<td><table style="width: 100%; font-size:70%" border="0" cellpadding="0" cellspacing="0"><tbody>
+<tr><td>De 2008 a 2018</td><td>METEO-FRANCE</td></tr>
+</tbody>
+</table>
+</td>
+</tr>
+</tbody>
+</table>
+<br>
+<hr/>
+</blockquote>
+<ul><li class="rubrique">Param&egrave;tres</li></ul>
+<blockquote>
+<table class="liste" border="1" cellpadding="2" cellspacing="2" width="75%"><tbody>
+<tr><th>Mn&eacute;monique</th><th>Libell&eacute;</th><th>Unit&eacute;</th><th>Pas de temps</th></tr>
+<tr><td>RR1</td><td>HAUTEUR DE PRECIPITATIONS HORAIRE</td><td>MILLIMETRES ET 1/10</td><td>horaire</td></tr>
+<tr><td>DRR1</td><td>DUREE DES PRECIPITATIONS HORAIRE</td><td>MINUTES</td><td>horaire</td></tr>
+<tr><td>T</td><td>TEMPERATURE SOUS ABRI HORAIRE</td><td>DEG C ET 1/10</td><td>horaire</td></tr>
+<tr><td>FF</td><td>VITESSE DU VENT HORAIRE</td><td>M/S ET 1/10</td><td>horaire</td></tr>
+<tr><td>DD</td><td>DIRECTION DU VENT A 10 M HORAIRE</td><td>ROSE DE 360</td><td>horaire</td></tr>
+<tr><td>U</td><td>HUMIDITE RELATIVE HORAIRE</td><td>%</td><td>horaire</td></tr>
+</tbody></table>
+</blockquote>
+<hr/><br>
+</blockquote>
+</body></html>

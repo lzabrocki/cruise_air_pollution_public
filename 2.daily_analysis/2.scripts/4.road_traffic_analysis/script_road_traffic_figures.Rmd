@@ -1,0 +1,381 @@
+---
+title: "Exploraty Data Analysis of the Effect of Road Traffic on NO2 Concentration in Marseille"
+description: |
+  Comparing weekdays to weekend.
+author:
+  - name: Léo Zabrocki 
+    url: https://www.parisschoolofeconomics.eu/en/
+    affiliation: Paris School of Economics
+    affiliation_url: https://www.parisschoolofeconomics.eu/en/
+  - name: Marion Leroutier 
+    url: https://marionleroutier.weebly.com/
+    affiliation: Mistra Center for Sustainable Markets, Stockholm School of Economics
+    affiliation_url: https://www.hhs.se/en/persons/l/leroutier-marion/
+  - name: Marie-Abèle Bind 
+    url: https://biostatistics.massgeneral.org/faculty/marie-abele-bind-phd/
+    affiliation: Biostatistics Center, Massachusetts General Hospital
+    affiliation_url: https://biostatistics.massgeneral.org/faculty/marie-abele-bind-phd/
+date: "`r Sys.Date()`"
+output: 
+    distill::distill_article:
+      toc: true
+      toc_depth: 2
+---
+
+<style>
+body {
+text-align: justify}
+</style>
+
+In this document, we carry out an exploratory data analysis to investigate the parallel evolution of road traffic and nitrogen dioxide (NO$_{2}$) concentrations in Marseille. We focus on NO$_{2}$ as it is locally emitted by cars. We carry out a simple analysis where compare the concentration of NO$_{2}$ between weekdays and weekends as road traffic tends to decrease on Saturday and Sunday. The weekend/weedays contrast can be seen as a form of arbitrary variation in road traffic. We do not check the effects on other pollutants because they are less emitted locally.
+
+In the following sections, we proceed as follows:
+
+* We show that road traffic is indeed lower on weekends and that NO$_{2}$ concentrations fall at the end of the week.
+* We check that weather covariates are balanced across weekdays and weekends.
+* We compute the difference in NO$_{2}$ concentrations between weekdays and weekends.
+
+**Should you have any questions, need help to reproduce the analysis or find coding errors, please do not hesitate to contact us at leo.zabrocki@psemail.eu and marion.leroutier@psemail.eu.**
+
+# Required Packages
+
+To reproduce exactly the `script_road_traffic_figures.html` document, we first need to have installed:
+
+* the [R](https://www.r-project.org/) programming language on your computer 
+* [RStudio](https://rstudio.com/), an integrated development environment for R, which will allow you to knit the `script_road_traffic_figures.Rmd` file and interact with the R code chunks
+* the [R Markdown](https://rmarkdown.rstudio.com/) package
+* and the [Distill](https://rstudio.github.io/distill/) package which provides the template of this document. 
+
+Once everything is set up, we have to load the following packages:
+
+```{r, echo=TRUE, message = FALSE, warning = FALSE}
+# load required packages
+library(knitr) # for creating the R Markdown document
+library(here) # for files paths organization
+library(tidyverse) # for data manipulation and visualization
+library(kableExtra) # for table formatting
+library(Cairo) # for printing customed police of graphs
+```
+
+We use a custom ggplot2 theme for graphs:
+
+```{r, echo = TRUE, message = FALSE, warning = FALSE}
+# load ggplot customed theme
+source(here::here("2.scripts", "5.custom_ggplot2_theme", "script_custom_ggplot_theme.R"))
+````
+
+The theme is based on the fantastic [hrbrthemes](https://hrbrmstr.github.io/hrbrthemes/index.html) package. If you do not want to use this theme or are unable to install it because of fonts issues, you can use the `theme_mimimal()` included in the `ggplot2` package.
+
+# Data Loading and Formatting
+
+First, we load the daily data:
+
+```{r, echo=TRUE}
+# load data
+data <- readRDS(here::here("1.data", "2.data_for_analysis", "0.main_data", "data_for_analysis_daily.RDS"))
+````
+
+We select relevant variables for our analysis:
+
+```{r, echo=TRUE}
+data <- data %>%
+  select(# date variable
+         "date",
+         # pollutants
+         "mean_no2_l", "mean_no2_sl",
+         # maritime traffic variables
+         "total_gross_tonnage_cruise",
+         # weather parameters
+         "temperature_average", "rainfall_height_dummy", "humidity_average", "wind_speed", "wind_direction_categories", 
+         # road traffic variables
+         "road_traffic_flow_all",
+         # calendar indicators
+         "weekday", "weekend", "holidays_dummy", "bank_day_dummy", "month", "season", "year")
+````
+
+# Exploratory Data Analysis
+
+### Road Traffic Variation by Day of the Week
+
+We explore the patterns of road traffic. It is important to keep in mind that:
+
+* We only use six stations in Marseille to create an aggregated measure of traffic.
+* Some stations have an important number of missing values.
+* Data are available only from 2011-01-01	to 2016-10-02.
+
+We first plot the average road traffic by day of the week :
+
+```{R, echo=TRUE, message = FALSE, warning = FALSE, layout="l-body-outset", fig.width=20, fig.height=10, dev = "CairoPNG"}
+# make the graph
+graph_road_traffic_wd <- data %>%
+  select(weekday, road_traffic_flow_all) %>%
+  group_by(weekday) %>%
+  summarise(road_traffic_flow_all = mean(road_traffic_flow_all, na.rm = TRUE)) %>%
+  ggplot(., aes(x = weekday, y = road_traffic_flow_all)) +
+  geom_segment(aes(x = weekday, xend = weekday, y = 0, yend = road_traffic_flow_all)) +
+  geom_point(shape = 21, size = 8, colour = "black", fill = "deepskyblue3") +
+  xlab("Day of the Week") + ylab("Average Number of \nVehicles per Hour") +
+  custom_theme
+
+# we print the graph
+graph_road_traffic_wd
+
+# save the graph
+ggsave(graph_road_traffic_wd, filename = here::here("3.outputs", "1.figures", "2.analysis_pollution", "2.road_traffic", "graph_road_traffic_wd.pdf"), 
+       width = 30, height = 15, units = "cm", device = cairo_pdf)
+````
+
+We then plot the empirical cumulative distribution of road traffic by weekdays and weekend:
+
+```{R, echo=TRUE, message = FALSE, warning = FALSE, layout="l-body-outset", fig.width=20, fig.height=10, dev = "CairoPNG"}
+graph_ecdf_road_traffic_we <- data %>%
+  select(weekend, road_traffic_flow_all) %>%
+  mutate(weekend = ifelse(weekend == 1, "Weekend", "Weekday")) %>%
+  ggplot(., aes(x = road_traffic_flow_all, colour = weekend)) +
+  stat_ecdf(size = 1.1) +
+  scale_color_manual(values = c("deepskyblue3", "coral")) +
+  ylab("Cumulative Probability") + xlab("Average Number of Vehicles per Hour") +
+  labs(colour = "Status:") +
+  custom_theme +
+  theme(legend.position = "top", legend.justification = "left", legend.direction = "horizontal")
+
+# we print the graph
+graph_ecdf_road_traffic_we
+
+# save the graph
+ggsave(graph_ecdf_road_traffic_we, filename = here::here("3.outputs", "1.figures", "2.analysis_pollution", "2.road_traffic", "graph_ecdf_road_traffic_we.pdf"), 
+       width = 30, height = 18, units = "cm", device = cairo_pdf)
+````
+
+### NO2 Variation by Day of the Week
+
+We plot the average NO2 concentration by day of the week:
+
+```{R, echo=TRUE, message = FALSE, warning = FALSE, layout="l-body-outset", fig.width=20, fig.height=12, dev = "CairoPNG"}
+# make the graph
+graph_no2_wd <- data %>%
+  select(weekday, mean_no2_l, mean_no2_sl) %>%
+  rename("Longchamp Station" = mean_no2_l, "Saint-Louis Station" = mean_no2_sl) %>%
+  pivot_longer(cols = -c(weekday), names_to = "station", values_to = "concentration") %>%
+  group_by(weekday, station) %>%
+  summarise(mean_no2 = mean(concentration, na.rm = TRUE)) %>%
+  ggplot(., aes(x = weekday, y = mean_no2)) +
+  geom_segment(aes(x = weekday, xend = weekday, y = 0, yend = mean_no2)) +
+  geom_point(shape = 21, size = 6, colour = "black", fill = "deepskyblue3") +
+  facet_wrap(~ station, ncol = 1) +
+  xlab("Day of the Week") + ylab("Average NO2 Concentrations (µg/m³)") +
+  custom_theme
+
+# we print the graph
+graph_no2_wd
+
+# save the graph
+ggsave(graph_no2_wd, filename = here::here("3.outputs", "1.figures", "2.analysis_pollution", "2.road_traffic", "graph_no2_wd.pdf"), 
+       width = 30, height = 25, units = "cm", device = cairo_pdf)
+````
+
+
+We also plot the empirical cumulative distribution of NO$_{2}$ concentration by weekdays and weekend:
+
+```{R, echo=TRUE, message = FALSE, warning = FALSE, layout="l-body-outset", fig.width=30, fig.height=10, dev = "CairoPNG"}
+# make the graph
+graph_ecdf_no2_we <- data %>%
+  select(weekend, mean_no2_l, mean_no2_sl) %>%
+  mutate(weekend = ifelse(weekend == 1, "Weekend", "Weekday")) %>%
+  rename("Longchamp Station" = mean_no2_l, "Saint-Louis Station" = mean_no2_sl) %>%
+  pivot_longer(cols = -c(weekend), names_to = "station", values_to = "concentration") %>%
+  ggplot(., aes(x = concentration, colour = weekend)) +
+  stat_ecdf(size = 1.1) +
+  scale_color_manual(values = c("deepskyblue3", "coral")) +
+  facet_wrap(~ station) +
+  ylab("Cumulative Probability") + xlab("NO2 Concentrations (µg/m³)") +
+  labs(colour = "Status:") +
+  custom_theme +
+  theme(legend.position = "top", legend.justification = "left", legend.direction = "horizontal")
+
+# we print the graph
+graph_ecdf_no2_we
+
+# save the graph
+ggsave(graph_ecdf_no2_we, filename = here::here("3.outputs", "1.figures", "2.analysis_pollution", "2.road_traffic",  "graph_ecdf_no2_we.pdf"), 
+       width = 40, height = 15, units = "cm", device = cairo_pdf)
+````
+
+### Average Total Gross Tonnage of Cruise Vessels by Day of the Week
+
+We plot the average total gross tonnage of vessels by day of the week:
+
+```{R, echo=TRUE, message = FALSE, warning = FALSE, layout="l-body-outset", fig.width=20, fig.height=10, dev = "CairoPNG"}
+graph_gross_tonnage_cruise_wd <- data %>%
+  select(weekday, total_gross_tonnage_cruise) %>%
+  group_by(weekday) %>%
+  summarise(total_gross_tonnage_cruise = mean(total_gross_tonnage_cruise, na.rm = TRUE)) %>%
+  ggplot(., aes(x = weekday, y = total_gross_tonnage_cruise)) +
+  geom_segment(aes(x = weekday, xend = weekday, y = 0, yend = total_gross_tonnage_cruise)) +
+  geom_point(shape = 21, size = 6, colour = "black", fill = "deepskyblue3") +
+  scale_y_continuous(breaks = scales::pretty_breaks(n = 5), labels = function(x) format(x, big.mark = " ", scientific = FALSE)) +
+  xlab("Day of the Week") + ylab("Average Total Gross Tonnage") +
+  custom_theme
+
+# we print the graph
+graph_gross_tonnage_cruise_wd
+
+# save the graph
+ggsave(
+  graph_gross_tonnage_cruise_wd,
+  filename = here::here(
+    "3.outputs",
+    "1.figures",
+    "2.analysis_pollution",
+    "2.road_traffic",
+    "graph_gross_tonnage_cruise_wd.pdf"
+  ),
+  width = 30,
+  height = 15,
+  units = "cm",
+  device = cairo_pdf
+)
+```
+
+# Weather Covariates Balance
+
+We can check that the weekends and weekdays are similar for weather covariates. For continuous weather covariates, we draw boxplots for treated and control groups:
+
+```{R, echo=TRUE, message = FALSE, warning = FALSE, layout="l-body-outset", fig.width=30, fig.height=10, dev = "CairoPNG"}
+# we select control variables and store them in a long dataframe
+data_weather_continuous_variables <- data %>%
+  mutate(weekend = ifelse(weekend == 1, "Weekend", "Weekday")) %>%
+  select(temperature_average,
+         humidity_average,
+         wind_speed,
+         weekend) %>%
+  pivot_longer(cols = -c(weekend),
+               names_to = "variable",
+               values_to = "values") %>%
+  mutate(variable = case_when(variable == "temperature_average" ~ "Average Temperature (°C)",
+                              variable == "humidity_average" ~ "Humidity Average (%)", 
+                              variable == "wind_speed" ~ "Wind Speed (m/s)"))
+
+
+graph_boxplot_continuous_weather <- ggplot(data_weather_continuous_variables, aes(x = weekend, y = values, colour = weekend)) + 
+  geom_violin(size = 1.2) + 
+  geom_boxplot(width=0.1, outlier.shape=NA) +
+  scale_color_manual(values=c("deepskyblue3", "coral")) +
+  ylab("Covariate Value") +
+  xlab("") + 
+  labs(colour = "Units Status:") +
+  facet_wrap(~variable, scale = "free", ncol = 3) +
+  custom_theme +
+  theme(legend.position = "top", legend.justification = "left", legend.direction = "horizontal")
+
+# we print the graph
+graph_boxplot_continuous_weather
+
+# save the graph
+ggsave(graph_boxplot_continuous_weather, filename = here::here("3.outputs", "1.figures", "2.analysis_pollution", "2.road_traffic",  "graph_boxplot_continuous_weather.pdf"), width = 40, height = 15, units = "cm", device = cairo_pdf)
+````
+
+For the rainfall dummy and the wind direction categories, we plot the proportions:
+
+```{R, echo=TRUE, message = FALSE, warning = FALSE, layout="l-body-outset", fig.width=30, fig.height=10, dev = "CairoPNG"}
+# we select the rainfall variables
+data_weather_categorical <- data %>%
+  mutate(weekend = ifelse(weekend == 1, "Weekend", "Weekday")) %>%
+  select(rainfall_height_dummy,
+         wind_direction_categories,
+         weekend) %>%
+  drop_na() %>%
+  mutate_at(vars(rainfall_height_dummy), ~ ifelse(. == 1, "True", "False")) %>%
+  mutate_all( ~ as.character(.)) %>%
+  pivot_longer(cols = -c(weekend),
+               names_to = "variable",
+               values_to = "values") %>%
+  # group by weekend, variable and values
+  group_by(weekend, variable, values) %>%
+  # compute the number of observations
+  summarise(n = n()) %>%
+  # compute the proportion
+  mutate(freq = round(n / sum(n) * 100, 0)) %>%
+  ungroup() %>%
+  mutate(
+    variable = case_when(
+      variable == "wind_direction_categories" ~ "Wind Direction",
+      variable == "rainfall_height_dummy" ~ "Rainfall Dummy"
+    )
+  )
+
+# build the graph
+graph_categorical_weather <-
+  ggplot(data_weather_categorical, aes(x = freq, y = values, fill = weekend)) +
+  geom_point(shape = 21,
+             size = 6,
+             alpha = 0.8) +
+  scale_fill_manual(values = c("deepskyblue3", "coral")) +
+  facet_wrap( ~ variable, scales = "free") +
+  xlab("Proportion (%)") +
+  ylab("") +
+  labs(fill = "Units Status:") +
+  custom_theme +
+  theme(
+    legend.position = "top",
+    legend.justification = "left",
+    legend.direction = "horizontal"
+  )
+
+# we print the graph
+graph_categorical_weather
+
+# save the graph
+ggsave(
+  graph_categorical_weather,
+  filename = here::here(
+  "3.outputs", "1.figures", "2.analysis_pollution", "2.road_traffic",
+    "graph_categorical_weather.pdf"
+  ),
+  width = 40,
+  height = 20,
+  units = "cm",
+  device = cairo_pdf
+)
+````
+
+# Weekend Effect on Road Traffic and NO$_{2}$ Concentrations
+
+We calculate the average differences in road traffic and NO$_{2}$ concentrations between weekends and weekdays.
+
+### Weekend Effect on Road Traffic
+
+We compute the average in the flow of vehicles between weekdays and weekends:
+
+```{r, echo = TRUE, message = FALSE, warning = FALSE}
+# compute average effect
+data %>%
+  filter(!is.na(road_traffic_flow_all)) %>%
+  summarise(average_difference = mean(road_traffic_flow_all[weekend == 1]) - mean(road_traffic_flow_all[weekend == 0]))
+```
+
+On average, the hourly road traffic decreases by -474 vehicles on weekends.
+
+### Weekend Effect on NO2 concentrations
+
+We compute the average effect of weekends on NO2 concentrations.
+
+```{r, echo = TRUE, message = FALSE, warning = FALSE}
+# compute mean difference in no2 for the two stations
+data %>%
+  select(weekend, mean_no2_l, mean_no2_sl) %>%
+  pivot_longer(cols = -c(weekend),
+               names_to = "station",
+               values_to = "concentration") %>%
+  group_by(station) %>%
+  summarise(average_difference = round(mean(concentration[weekend == 1], na.rm = TRUE) - mean(concentration[weekend == 0], na.rm = TRUE), 1))
+```
+
+On average, NO$_{2}$ is lower between 7.5 and 8.3 $\mu g/m^{3}$ on weekends compared to weekdays, depending on the monitoring station.
+
+
+
+
+
+
+

@@ -5,7 +5,7 @@ display the general organization of the material and then detail how each sub-fo
 is structured. Should you have any questions or find coding errors, do not hesitate
 to contact us!
 
-# General Organization
+## General Organization
 
 The replication material is organized as follows:
 
@@ -28,7 +28,7 @@ procedure. Second, the matching procedure at the hourly level is computationally
 demanding. We had to rent an Amazon Web Services virtual computer (EC2
 t3.2xlarge) to run the matching algorithm.
 
-# Hourly Analysis
+## Hourly Analysis
 * `1.data` contains all the raw and clean data for the analysis.
     * `1.raw_data` contains all the raw data to build the main data used in the
 analysis. The folder 3.weather_data contains the real weather data for
@@ -46,11 +46,11 @@ randomization-based inference procedures.
     * `4.custom_ggplot2_theme` contains our custom ggplot2 theme.
 * `3.outputs` contains all the figures produced by the codes.
 
-# Daily Analysis
+## Daily Analysis
 
 The folder of the daily analysis is organized in the same manner as the hourly analysis
 folder.
 
-# Toy Example
+## Toy Example
 This folder contains the data, the codes and the outputs to reproduce the toy example
 found in the supplementary materials.

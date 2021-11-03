@@ -3,7 +3,7 @@
 We explain here how our replication material is organized. We first
 display the general organization of the material and then detail how each sub-folder
 is structured. Should you have any questions or find coding errors, do not hesitate
-to contact us!
+to contact us at leo.zabrocki@psemail.eu.
 
 ## General Organization
 
